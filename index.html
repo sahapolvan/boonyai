@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Family Echo Simulator - ข้อมูลบุคคล</title>
+    <title>Family Echo Simulator - แผนผังครอบครัว</title>
     <style>
-        /* สไตล์พื้นฐาน เลียนแบบโทนสีและฟอนต์ของ Family Echo */
         body {
             font-family: Arial, sans-serif;
             background-color: #f7f9fa;
@@ -14,14 +13,81 @@
             padding: 20px;
         }
 
+        /* ส่วนแสดงผลผังครอบครัวจำลอง */
+        .tree-container {
+            max-width: 800px;
+            margin: 0 auto 30px auto;
+            text-align: center;
+            padding: 30px;
+            background: #ffffff;
+            border: 1px dashed #cbd5e1;
+            border-radius: 8px;
+        }
+
+        .tree-title {
+            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        /* กล่องบุคคลเลียนแบบ Family Echo */
+        .member-box {
+            display: inline-block;
+            width: 160px;
+            padding: 12px;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            font-size: 13px;
+            text-align: left;
+            border: 1px solid #b8c0c8;
+            background-color: #f0f4f8; /* สีเริ่มต้น */
+            transition: all 0.3s ease;
+        }
+
+        /* เปลี่ยนสีตามเพศเหมือนเว็บจริง */
+        .member-box.male { background-color: #e3f2fd; border-color: #90caf9; }
+        .member-box.female { background-color: #fce4ec; border-color: #f48fb1; }
+        .member-box.other { background-color: #f3e5f5; border-color: #ce93d8; }
+
+        .member-name { font-weight: bold; margin-bottom: 4px; color: #1e293b; }
+        .member-details { font-size: 11px; color: #64748b; margin-bottom: 6px; }
+        .btn-edit-node {
+            display: block;
+            text-align: center;
+            font-size: 11px;
+            color: #3498db;
+            text-decoration: none;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 4px;
+            cursor: pointer;
+        }
+
+        /* หน้าต่างกรอกข้อมูล (Modal) */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
         .container {
-            max-width: 650px;
+            width: 90%;
+            max-width: 600px;
             background-color: #ffffff;
-            margin: 0 auto;
             padding: 25px;
             border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
             border: 1px solid #e1e4e6;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
         }
 
         h2 {
@@ -29,10 +95,9 @@
             border-bottom: 2px solid #3498db;
             padding-bottom: 8px;
             margin-top: 0;
-            font-size: 22px;
+            font-size: 20px;
         }
 
-        /* การจัดแท็บหมวดหมู่เลียนแบบต้นฉบับ */
         .tabs {
             display: flex;
             background-color: #f0f3f5;
@@ -44,7 +109,7 @@
 
         .tab {
             padding: 8px 16px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: bold;
             color: #555;
             background: none;
@@ -61,7 +126,6 @@
             margin-bottom: -1px;
         }
 
-        /* การจัดวางฟอร์มกรอกข้อมูล */
         .form-group {
             display: flex;
             align-items: center;
@@ -70,7 +134,7 @@
 
         .form-group label {
             width: 140px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: bold;
             color: #4a5568;
         }
@@ -78,25 +142,11 @@
         .form-group input, .form-group select, .form-group textarea {
             flex: 1;
             padding: 6px 10px;
-            font-size: 14px;
+            font-size: 13px;
             border: 1px solid #cbd5e1;
             border-radius: 4px;
-            box-sizing: border-box;
         }
 
-        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
-            outline: none;
-            border-color: #3498db;
-            box-shadow: 0 0 3px rgba(52, 152, 219, 0.3);
-        }
-
-        .row-inline {
-            display: flex;
-            gap: 15px;
-            width: 100%;
-        }
-
-        /* ปุ่มกด */
         .button-group {
             margin-top: 25px;
             padding-top: 15px;
@@ -106,7 +156,7 @@
 
         .btn {
             padding: 8px 20px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: bold;
             border-radius: 4px;
             cursor: pointer;
@@ -114,112 +164,106 @@
             margin-left: 8px;
         }
 
-        .btn-primary {
-            background-color: #27ae60;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background-color: #219653;
-        }
-
-        .btn-secondary {
-            background-color: #e2e8f0;
-            color: #4a5568;
-        }
-
-        .btn-secondary:hover {
-            background-color: #cbd5e1;
-        }
+        .btn-primary { background-color: #27ae60; color: white; }
+        .btn-primary:hover { background-color: #219653; }
+        .btn-secondary { background-color: #e2e8f0; color: #4a5568; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>แก้ไขข้อมูลบุคคล (Family Echo Sim)</h2>
+<!-- 1. ส่วนแสดงต้นไม้ครอบครัวจำลองบนหน้าหลัก -->
+<div class="tree-container">
+    <div class="tree-title">Interactive Family Tree View</div>
     
-    <!-- เมนูแท็บด้านบน -->
-    <div class="tabs">
-        <button class="tab active">Personal</button>
-        <button class="tab">Partners</button>
-        <button class="tab">Contact</button>
-        <button class="tab">Biography</button>
+    <div id="family-member" class="member-box">
+        <div id="display-name" class="member-name">(ยังไม่ได้กำหนดชื่อ)</div>
+        <div id="display-details" class="member-details">กรุณากรอกข้อมูล</div>
+        <span class="btn-edit-node" onclick="openModal()">Edit details</span>
     </div>
-
-    <!-- ฟอร์มกรอกข้อมูล -->
-    <form>
-        <div class="form-group">
-            <label for="given-name">Given names:</label>
-            <input type="text" id="given-name" name="given-name" placeholder="ชื่อจริง">
-        </div>
-
-        <div class="form-group">
-            <label for="middle-name">Middle names:</label>
-            <input type="text" id="middle-name" name="middle-name">
-        </div>
-
-        <div class="form-group">
-            <label for="surname-now">Surname now:</label>
-            <input type="text" id="surname-now" name="surname-now" placeholder="นามสกุลปัจจุบัน">
-        </div>
-
-        <div class="form-group">
-            <label for="surname-birth">Surname at birth:</label>
-            <input type="text" id="surname-birth" name="surname-birth" placeholder="นามสกุลตอนเกิด">
-        </div>
-
-        <div class="form-group">
-            <label for="nickname">Nickname:</label>
-            <input type="text" id="nickname" name="nickname">
-        </div>
-
-        <div class="form-group">
-            <label for="gender">Gender:</label>
-            <select id="gender" name="gender">
-                <option value="">-- เลือกเพศ --</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
-            </select>
-        </div>
-
-        <div class="form-group">
-            <label for="birth-date">Birth date:</label>
-            <input type="text" id="birth-date" name="birth-date" placeholder="เช่น 1 ม.ค. 1990">
-        </div>
-
-        <div class="form-group">
-            <label for="birth-place">Birth place:</label>
-            <input type="text" id="birth-place" name="birth-place">
-        </div>
-
-        <div class="form-group">
-            <label for="death-date">Death date:</label>
-            <input type="text" id="death-date" name="death-date" placeholder="ปล่อยว่างไว้หากยังมีชีวิต">
-        </div>
-
-        <div class="form-group">
-            <label for="profession">Profession:</label>
-            <input type="text" id="profession" name="profession" placeholder="อาชีพ">
-        </div>
-
-        <div class="form-group">
-            <label for="company">Company:</label>
-            <input type="text" id="company" name="company" placeholder="บริษัท/หน่วยงาน">
-        </div>
-
-        <div class="form-group">
-            <label for="bio-notes">Bio notes:</label>
-            <textarea id="bio-notes" name="bio-notes" rows="3" placeholder="บันทึกประวัติเพิ่มเติม..."></textarea>
-        </div>
-
-        <!-- ปุ่มกดยืนยันการทำงาน -->
-        <div class="button-group">
-            <button type="button" class="btn btn-secondary">Cancel</button>
-            <button type="submit" class="btn btn-primary">OK</button>
-        </div>
-    </form>
 </div>
+
+<!-- 2. หน้าต่างฟอร์มกรอกข้อมูล (เปิด/ปิด ได้ด้วย JavaScript) -->
+<div id="form-modal" class="modal-overlay">
+    <div class="container">
+        <h2>Edit details (Family Echo Sim)</h2>
+        
+        <div class="tabs">
+            <button class="tab active">Personal</button>
+            <button class="tab">Partners</button>
+            <button class="tab">Contact</button>
+            <button class="tab">Biography</button>
+        </div>
+
+        <form id="info-form">
+            <div class="form-group">
+                <label for="given-name">Given names:</label>
+                <input type="text" id="given-name" required placeholder="ชื่อจริง ตัวอย่าง: สมชาย">
+            </div>
+
+            <div class="form-group">
+                <label for="surname-now">Surname now:</label>
+                <input type="text" id="surname-now" required placeholder="นามสกุล">
+            </div>
+
+            <div class="form-group">
+                <label for="gender">Gender:</label>
+                <select id="gender" required>
+                    <option value="">-- เลือกเพศ --</option>
+                    <option value="male">Male (สีฟ้า)</option>
+                    <option value="female">Female (สีชมพู)</option>
+                    <option value="other">Other (สีม่วง)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="birth-date">Birth date:</label>
+                <input type="text" id="birth-date" placeholder="เช่น 1995">
+            </div>
+
+            <div class="form-group">
+                <label for="profession">Profession:</label>
+                <input type="text" id="profession" placeholder="อาชีพปัจจุบัน">
+            </div>
+
+            <div class="button-group">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">OK</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const modal = document.getElementById('form-modal');
+    const form = document.getElementById('info-form');
+    
+    // ฟังก์ชันเปิด-ปิด หน้าต่างฟอร์ม
+    function openModal() { modal.style.display = 'flex'; }
+    function closeModal() { modal.style.display = 'none'; }
+
+    // ทำงานเมื่อกดปุ่ม OK (Submit ฟอร์ม)
+    form.addEventListener('submit', function(event) {
+        event.preventDefault(); // หยุดการโหลดหน้าใหม่
+
+        // 1. ดึงค่าจากฟอร์ม
+        const givenName = document.getElementById('given-name').value;
+        const surnameNow = document.getElementById('surname-now').value;
+        const gender = document.getElementById('gender').value;
+        const birthDate = document.getElementById('birth-date').value || '-';
+        const profession = document.getElementById('profession').value || '-';
+
+        // 2. นำข้อมูลไปแสดงที่การ์ดต้นไม้ด้านหลัง
+        document.getElementById('display-name').innerText = givenName + " " + surnameNow;
+        document.getElementById('display-details').innerHTML = `เกิด: ${birthDate}<br>อาชีพ: ${profession}`;
+
+        // 3. เปลี่ยนสีกล่องตามเพศที่เลือก
+        const memberBox = document.getElementById('family-member');
+        memberBox.className = 'member-box ' + gender; // ล้างคลาสเก่าแล้วใส่คลาสเพศใหม่
+
+        // 4. ปิดหน้าต่างฟอร์มกรอกข้อมูลลงไป
+        closeModal();
+    });
+</script>
 
 </body>
 </html>
