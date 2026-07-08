@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🌳 แผนผังวงศ์ตระกูลอัจฉริยะ (ดึงข้อมูล Google Sheets สด)</title>
     <style>
-        /* จัดพิกัดแบบจัดเต็ม แผงสเปซพื้นหลังโทนอุ่น และกล่องคน ชาย-ฟ้า/หญิง-ชมพู */
         body { font-family: Arial, sans-serif; background-color: #fcfbfa; margin: 0; overflow: hidden; }
         header { background: #ffffff; padding: 10px 20px; border-bottom: 1px solid #e5e5e5; display: flex; justify-content: space-between; height: 40px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .logo { font-size: 20px; font-weight: bold; color: #1a237e; font-family: 'Georgia', serif; }
@@ -34,7 +33,7 @@
         <input type="text" id="search-input" placeholder="ค้นหาชื่อในตระกูล..." oninput="searchPerson()">
         <button class="btn" onclick="zoom(0.1)">➕ ซูมเข้า</button>
         <button class="btn" onclick="zoom(-0.1)">➖ ซูมออก</button>
-        <button class="btn" onclick="resetView()">🔄 รีเซ็ต</button>
+        <button class="btn" onclick="resetView()">🔄 รีเซ็ตมุมมอง</button>
     </div>
 </header>
 
@@ -46,10 +45,9 @@
 </div>
 
 <script>
-    // URL ดึงข้อมูลจาก Google Sheets (แก้ไขโดยบีบโครงสร้างให้ไม่ผ่าน Redirect ป้องกัน CORS)
-   // const DATA_URL = "https://google.com";
-  const DATA_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRSlNovE5Trf1x5aKnKd5aA8htogPXgQb5RYmF-Sa0c3AZwHi3Z0Ggr4SuH_guOPhGzOFh87NYmqUbs/pub?output=csv";
-
+    // URL สำหรับสตรีมข้อมูลดิบจากชีตของน้า
+    const DATA_URL = "https://google.com";
+    
     const NODE_WIDTH = 140;
     const LEVEL_HEIGHT = 190;
     let people = {}, families = [], layout = {}, scale = 0.8, panX = 150, panY = 80;
@@ -59,11 +57,10 @@
         fetchData();
     };
 
-    // ฟังก์ชันดึงข้อมูลแบบปลอดภัย
     function fetchData() {
         fetch(DATA_URL)
             .then(response => {
-                if (!response.ok) throw new Error("Network response was not ok");
+                if (!response.ok) throw new Error("ไม่สามารถเปิดลิงก์ข้อมูลชีตได้");
                 return response.text();
             })
             .then(csvText => {
@@ -71,10 +68,8 @@
                 renderTree();
             })
             .catch(err => {
-                console.error("เกิดข้อผิดพลาดในการดึง Sheets: ", err);
-                // ข้อมูลสำรองกันหน้าจอขาว หาก Network โดนบล็อกกะทันหัน
-                parseCSV(`id,name,gender,father,mother,spouse\n1,ศรัณย์ (Backup),ช,,,2\n2,เยาว์ (Backup),ญ,,,1\n3,ติ๋ม (Backup),ญ,1,2,4\n4,เฟื่อง (Backup),ช,,,3`);
-                renderTree();
+                console.error(err);
+                alert("เกิดปัญหาระบบเครือข่ายในการติดต่อ Google Sheets: " + err.message);
             });
     }
 
@@ -85,16 +80,17 @@
         applyTransform();
     }
 
-    // ฟังก์ชันแปลงรูปแบบ CSV ให้เป็น Object
+    // ระบบอ่านแถวตัวกรอง CSV ป้องกันคำภาษาไทยติดขัด
     function parseCSV(text) {
         people = {};
-        const lines = text.split("\n");
+        const lines = text.split(/\r?\n/);
         if (lines.length < 2) return;
-        const headers = lines[0].split(",").map(h => h.trim().replace(/"/g, ''));
+        const headers = lines[0].split(",").map(h => h.trim().replace(/^["']|["']$/g, ''));
         
         for (let i = 1; i < lines.length; i++) {
-            if (!lines[i].trim()) continue;
-            const cols = lines[i].split(",").map(c => c.trim().replace(/"/g, ''));
+            const line = lines[i].trim();
+            if (!line) continue;
+            const cols = line.split(",").map(c => c.trim().replace(/^["']|["']$/g, ''));
             let rowData = {};
             headers.forEach((h, idx) => rowData[h] = cols[idx] || "");
             if (rowData.id) {
@@ -117,12 +113,12 @@
             if (!p.father && !p.mother) return;
             let key = (p.father || "unknown") + "|" + (p.mother || "unknown");
             if (!familyMap[key]) familyMap[key] = { father: p.father, mother: p.mother, children: [] };
-            familyMap[key].children.push(p.id);
+            if (!familyMap[key].children.includes(p.id)) familyMap[key].children.push(p.id);
         });
         families = Object.values(familyMap);
     }
 
-    // จัดเรียงตำแหน่งโหนด (ลอจิกจาก layout.js เดิมของน้า)
+    // ระบบจัดสรรปีกเครือข่ายสายสัมพันธ์ ป้องกันการวนลูปจนหน้าต่างบราวเซอร์ค้าง
     function layoutTree() {
         layout = {};
         const visited = new Set();
@@ -137,7 +133,6 @@
 
             const fam = families.find(f => f.father === pId || f.mother === pId);
             if (fam) {
-                // จัดกล่องคู่รักข้างกัน
                 if (fam.father && fam.mother) {
                     const partnerId = (pId === fam.father) ? fam.mother : fam.father;
                     if(people[partnerId] && !visited.has(partnerId)){
@@ -145,7 +140,6 @@
                         visited.add(partnerId);
                     }
                 }
-                // แตกโซนลูกหลานกระจายออกข้าง
                 fam.children.forEach((cId, i) => {
                     posFam(cId, x + (i - (fam.children.length - 1) / 2) * 220, level + 1);
                 });
@@ -153,10 +147,16 @@
         }
 
         const roots = Object.keys(people).filter(id => !people[id].father && !people[id].mother);
+        if(roots.length === 0 && Object.keys(people).length > 0) roots.push(Object.keys(people)[0]);
         roots.forEach((rootId, i) => posFam(rootId, i * 600 + 200, 1));
+
+        // กลไกป้องกันจอขาว: เก็บรวบรวมคนที่สูตรจัดแผนผังคำนวณข้ามไปให้ขึ้นหน้าจอครบทั้งหมด
+        Object.keys(people).forEach((id, i) => {
+            if (!layout[id]) layout[id] = { x: 100 + (i * 160), y: 100 };
+        });
     }
 
-    // การวาดภาพเชื่อมความสัมพันธ์แบบรวมศูนย์ตามกลุ่มครอบครัว (SVG เหลี่ยมหักฉากสวยงาม)
+    // ระบบวาดกิ่งก้านและสายสัมพันธ์สลับฉากด้วย SVG พิกัดศูนย์กลาง
     function drawTree() {
         const nodesContainer = document.getElementById("nodes-container");
         const svgLayer = document.getElementById("svg-layer");
@@ -171,7 +171,6 @@
             if (fatherPos && motherPos) {
                 parentCenterX = (fatherPos.x + motherPos.x) / 2 + halfNode;
                 parentCenterY = fatherPos.y + 50; 
-                // เส้นจับคู่แต่งงานระหว่างพ่อ-แม่
                 drawRawSVGLine(fatherPos.x + NODE_WIDTH, fatherPos.y + 25, motherPos.x, motherPos.y + 25);
             } else if (fatherPos || motherPos) {
                 const p = fatherPos || motherPos;
@@ -184,23 +183,20 @@
             const firstChildPos = layout[fam.children[0]];
             if (!firstChildPos) return;
 
-            // คำนวณความสูงคานสะพานเหลี่ยมตรงกลางระหว่างรุ่น
             const dropY = parentCenterY + (firstChildPos.y - parentCenterY) / 2;
+            
+            // เส้นดิ่งแกนกลางผ่ากึ่งกลางระหว่างคู่รัก
+            drawOrthogonalLine(parentCenterX, parentCenterY, parentCenterX, dropY);
 
-            // เส้นดิ่งหลักจากพ่อแม่ลงหาคาน
-            drawRawSVGLine(parentCenterX, parentCenterY, parentCenterX, dropY);
-
-            // ลากคานแนวนอนแยกสายและดิ่งทิ่มลงหัวลูกแต่ละคน
             fam.children.forEach(cId => {
                 const childPos = layout[cId];
                 if (!childPos) return;
                 const childCenterX = childPos.x + halfNode;
-                drawRawSVGLine(childCenterX, dropY, childCenterX, childPos.y);
-                drawRawSVGLine(parentCenterX, dropY, childCenterX, dropY);
+                // วาดเส้นสลักฉากหักมุมผ่ากลางหัวกล่องโหนดย่อยของลูกๆ แต่ละคน
+                drawOrthogonalLine(parentCenterX, dropY, childCenterX, childPos.y);
             });
         });
 
-        // แปะการ์ดบุคคลลงในจอตามพิกัด
         Object.keys(layout).forEach(id => {
             const p = people[id], pos = layout[id];
             if (!p) return;
@@ -213,8 +209,13 @@
         });
     }
 
-    function drawRawSVGLine(x1, y1, x2, y2) {
+    function drawOrthogonalLine(x1, y1, x2, y2) {
+        const midY = y1 + (y2 - y1) / 2;
         const path = document.createElementNS("http://w3.org", "path");
-        path.setAttribute("d", `M ${x1} ${y1} L ${x2} ${y2}`);
+        path.setAttribute("d", `M ${x1} ${y1} V ${midY} H ${x2} V ${y2}`);
         path.setAttribute("class", "family-line");
-    
+        document.getElementById("svg-layer").appendChild(path);
+    }
+
+    function drawRawSVGLine(x1, y1, x2, y2) {
+
