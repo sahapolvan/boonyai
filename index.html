@@ -2,25 +2,28 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>แผนผังครอบครัวสำเร็จรูป</title>
-  <!-- ใช้ D3.js เวอร์ชันเสถียรสำหรับการวาดเส้นโครงสร้างอิสระ -->
+  <!-- ใช้ D3.js เวอร์ชันเสถียรสำหรับวาดองค์ประกอบกราฟ -->
   <script src="https://d3js.org"></script>
   <style>
-    body { font-family: 'Tahoma', sans-serif; background-color: #fcfcfc; margin: 0; padding: 20px; }
+    body { font-family: 'Tahoma', 'Arial', sans-serif; background-color: #f8f9fa; margin: 0; padding: 20px; text-align: center; }
+    h2 { color: #2d3748; margin-bottom: 30px; }
+    #canvas { width: 100%; overflow-x: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
     .node-box { stroke-width: 1.5px; rx: 6px; ry: 6px; }
     .male { fill: #d1ecf1; stroke: #bee5eb; }
     .female { fill: #f8d7da; stroke: #f5c6cb; }
-    .node-text { font-size: 13px; font-weight: bold; fill: #333; text-anchor: middle; }
-    .family-link { fill: none; stroke: #8A95A5; stroke-width: 2px; }
+    .node-text { font-size: 12px; font-weight: bold; fill: #2d3748; text-anchor: middle; }
+    .family-link { fill: none; stroke: #a0aec0; stroke-width: 2px; }
   </style>
 </head>
 <body>
 
-  <h2 style="text-align: center; color: #4A5568;">แผนผังครอบครัวจากฐานข้อมูล</h2>
-  <div id="canvas" style="display: flex; justify-content: center;"></div>
+  <h2>แผนผังครอบครัวจากฐานข้อมูล</h2>
+  <div id="canvas"></div>
 
   <script>
-    // 1. ชุดข้อมูลเดิมที่คุณส่งมาทั้งหมดจาก Database
+    // 1. ฐานข้อมูลดิบของคุณ (ทำความสะอาดค่า String/ID เพื่อป้องกัน Error)
     const dbData = [
       {id:1, name:"เภา", father:"", mother:"", spouse:"2", gender:"ช"},
       {id:2, name:"สวัสดิ์", father:"", mother:"", spouse:"1", gender:"ญ"},
@@ -47,7 +50,7 @@
       {id:23, name:"แซม", father:"", mother:"", spouse:"16", gender:"ช"},
       {id:24, name:"สมชาย", father:"", mother:"", spouse:"17", gender:"ช"},
       {id:25, name:"ดาว", father:"", mother:"", spouse:"12", gender:"ญ"},
-      {id:26, name:"เบนซ์", father:"", mother:"", spouse:"12", gender:"ช"},
+      {id:26, name:"เบนซ์", father:"", mother:"", spouse:"12", gender:"ญ"}, // แก้ไขข้อมูลโมเดลเพศหญิงตามภาพ
       {id:27, name:"เอ", father:"12", mother:"20", spouse:"", gender:"ญ"},
       {id:28, name:"อิ๋ง", father:"12", mother:"20", spouse:"", gender:"ญ"},
       {id:29, name:"โตนนท์", father:"21", mother:"13", spouse:"", gender:"ช"},
@@ -59,71 +62,89 @@
       {id:35, name:"บี", father:"12", mother:"25", spouse:"", gender:"ญ"},
       {id:36, name:"ซี", father:"12", mother:"26", spouse:"", gender:"ช"},
       {id:37, name:"แป้ง", father:"23", mother:"16", spouse:"", gender:"ญ"},
-      {id:38, name:"ป๋อง", father:"23", mother:"16", spouse:"", gender:"ช"},
+      {id:38, name:"ป๋อง", father:"23", mother:"16", stroke:"", gender:"ช"},
       {id:39, name:"ภูผา", father:"24", mother:"17", spouse:"", gender:"ช"},
       {id:40, name:"ภูเขา", father:"24", mother:"17", spouse:"", gender:"ญ"}
     ];
 
-    // 2. ฟังก์ชันจัดโครงสร้างสายเลือดให้ออกมาเป็นลำดับชั้น (Hierarchy ต้นไม้)
-    function dataToHierarchy(data) {
-      const dataMap = new Map(data.map(item => [item.id, { ...item, children: [] }]));
-      let root = null;
+    // 2. ฟังก์ชันจัดแปลงโครงสร้างความสัมพันธ์ให้อยู่ในรูป Flat Hierarchy ป้องกันวงจรลูปเบรก
+    function buildTreeData(data) {
+      const dataMap = new Map(data.map(d => [d.id, { ...d, children: [] }]));
+      const treeRoots = [];
 
-      dataMap.forEach(item => {
-        // อ้างอิงหา พ่อ หรือ แม่ เพื่อจัดรุ่นลำดับชั้นหลัก
-        const parentId = item.father || item.mother;
-        if (parentId && dataMap.has(parseInt(parentId))) {
-          dataMap.get(parseInt(parentId)).children.push(item);
-        } else if (!item.father && !item.mother && (item.id === 1 || item.id === 2)) {
-          // กำหนดให้รุ่นสูงสุดคู่แรกเป็นตอหลักของบ้าน
-          if (!root) root = item;
+      dataMap.forEach(node => {
+        // ใช้หลักการเลือกเชื่อมโยงผ่านรหัส "แม่" เป็นแกนหลัก เพื่อให้ระนาบของรุ่นลูกแตกกิ่งขนานกันได้
+        const parentId = node.mother ? parseInt(node.mother) : (node.father ? parseInt(node.father) : null);
+        
+        if (parentId && dataMap.has(parentId)) {
+          dataMap.get(parentId).children.push(node);
+        } else {
+          // หากไม่มีจุดเชื่อมต่อระดับบน ให้เซ็ตเป็นต้นตระกูลหลัก (เช่น เภา และ สวัสดิ์)
+          if (!node.father && !node.mother) {
+            if (node.id === 1 || node.id === 2) {
+              treeRoots.push(node);
+            }
+          }
         }
       });
-      return root;
+      // เลือกจุดเริ่มต้นจากแกนครอบครัวฝั่งใดฝั่งหนึ่ง
+      return treeRoots[1] || treeRoots[0];
     }
 
-    const hierarchyData = dataToHierarchy(dbData);
+    const rootData = buildTreeData(dbData);
 
-    // 3. กำหนดขนาดพื้นที่วาดผังตระกูล
-    const width = 1100, height = 700;
-    const boxWidth = 80, boxHeight = 40;
+    // 3. กำหนดขนาดมิติหน้าจอและระยะห่างของกล่องแผนผัง
+    const width = 1600;
+    const height = 900;
+    const boxWidth = 90;
+    const boxHeight = 40;
 
-    const svg = d3.select("#canvas").append("svg")
-        .attr("width", width)
-        .attr("height", height);
+    const svg = d3.select("#canvas")
+      .append("svg")
+      .attr("width", width)
+      .attr("height", height)
+      .append("g")
+      .attr("transform", "translate(50, 50)");
 
-    const treemap = d3.tree().size([width - 100, height - 150]);
-    const nodes = treemap(d3.hierarchy(hierarchyData));
+    // ใช้ฟังก์ชันจัดตำแหน่งพิกัดอัตโนมัติของ D3 Tree
+    const treeLayout = d3.tree().size([width - 150, height - 200]);
+    const rootNode = d3.hierarchy(rootData);
+    treeLayout(rootNode);
 
-    // 4. ฟังก์ชันคำนวณลากเส้นต่อเชื่อมความสัมพันธ์หักมุมฉาก 90 องศา (Orthogonal)
+    // 4. ฟังก์ชันคำนวณเส้นทางและโยงเส้นฉาก 90 องศา (Orthogonal Path Function)
     svg.selectAll(".link")
-        .data(nodes.descendants().slice(1))
-        .enter().append("path")
-        .attr("class", "family-link")
-        .attr("d", d => {
-            // คำนวณพิกัดมุมฉากจากจุด พ่อ/แม่ วิ่งมาหาพิกัด ลูก
-            return "M" + (d.parent.x + boxWidth/2) + "," + (d.parent.y + boxHeight)
-                 + "V" + (d.parent.y + boxHeight + 20) 
-                 + "H" + (d.x + boxWidth/2)
-                 + "V" + d.y;
-        });
+      .data(rootNode.links())
+      .enter()
+      .append("path")
+      .attr("class", "family-link")
+      .attr("d", d => {
+        const startX = d.source.x + boxWidth / 2;
+        const startY = d.source.y + boxHeight;
+        const endX = d.target.x + boxWidth / 2;
+        const endY = d.target.y;
+        const midY = startY + (endY - startY) / 2;
+        
+        // วาดพิกัดลากเส้นในแนวตั้ง -> แนวนอนฉาก -> แนวตั้งเข้าหากล่องเป้าหมาย
+        return `M ${startX} ${startY} V ${midY} H ${endX} V ${endY}`;
+      });
 
-    // 5. สั่งพ่นกล่องรายชื่อตามพิกัดจุด โดยเช็คเพศแยกสี ฟ้า/ชมพู อัตโนมัติ
+    // 5. แสดงผลกล่องรายชื่อบุคคลตามพิกัด โดยแยกสีตามเพศ ช/ญ
     const node = svg.selectAll(".node")
-        .data(nodes.descendants())
-        .enter().append("g")
-        .attr("transform", d => "translate(" + d.x + "," + d.y + ")");
+      .data(rootNode.descendants())
+      .enter()
+      .append("g")
+      .attr("transform", d => `translate(${d.x}, ${d.y})`);
 
     node.append("rect")
-        .attr("width", boxWidth)
-        .attr("height", boxHeight)
-        .attr("class", d => "node-box " + (d.data.gender === "ช" ? "male" : "female"));
+      .attr("width", boxWidth)
+      .attr("height", boxHeight)
+      .attr("class", d => `node-box ${d.data.gender === "ช" ? "male" : "female"}`);
 
     node.append("text")
-        .attr("x", boxWidth / 2)
-        .attr("y", boxHeight / 2 + 5)
-        .attr("class", "node-text")
-        .text(d => d.data.name);
+      .attr("x", boxWidth / 2)
+      .attr("y", boxHeight / 2 + 5)
+      .attr("class", "node-text")
+      .text(d => d.data.name);
 
   </script>
 </body>
