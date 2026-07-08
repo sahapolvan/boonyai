@@ -2,28 +2,30 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <title>🌳 ทำเนียบวงศ์ตระกูล (ปรับปรุง)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌳 ทำเนียบวงศ์ตระกูล (รวมไฟล์เดียว)</title>
     <style>
-        body { font-family: sans-serif; background-color: #fcfbfa; margin: 0; overflow: hidden; }
-        #viewport { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
-        #canvas { position: absolute; transform-origin: 0 0; }
-        .person { position: absolute; width: 140px; height: 50px; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; padding: 5px; cursor: pointer; }
-        .male { background-color: #e3f2fd; }
-        .female { background-color: #fce4ec; }
-        svg { position: absolute; top: 0; left: 0; pointer-events: none; }
+        /* สไตล์ CSS: จัดรูปแบบผัง, กล่องบุคคล, และ SVG เส้นเชื่อม */
+        body { font-family: Arial, sans-serif; background-color: #fcfbfa; margin: 0; overflow: hidden; }
+        header { background: #fff; padding: 10px; border-bottom: 1px solid #e5e5e5; display: flex; justify-content: space-between; }
+        #viewport { width: 100vw; height: calc(100vh - 60px); position: relative; overflow: hidden; cursor: grab; }
+        #canvas { position: absolute; transform-origin: 0 0; width: 5000px; height: 5000px; }
+        svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        #nodes-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; }
+        .person { position: absolute; width: 140px; height: 50px; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; padding: 5px; box-sizing: border-box; cursor: pointer; }
+        .person.highlight { border: 2px solid #e74c3c; background-color: #fdf2f2; }
+        .circle { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 8px; flex-shrink: 0; }
+        .male { background-color: #e3f2fd; border: 1px solid #90caf9; }
+        .female { background-color: #fce4ec; border: 1px solid #f48fb1; }
+        .person-name { font-size: 12px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     </style>
 </head>
 <body>
-<div id="viewport">
-    <div id="canvas">
-        <svg id="svg-layer"></svg>
-        <div id="nodes"></div>
-    </div>
-</div>
+<!-- ... (โค้ด HTML ส่วนอื่นที่จำเป็น) ... -->
 <script>
-    // [สคริปต์วาดโครงสร้างวงศ์ตระกูล (SVG)]
+    // สคริปต์รวมลอจิกทั้งหมด (Data, Layout, Draw)
     const DATA_URL = "https://google.com";
-    // ... ฟังก์ชันโหลด/จัดการข้อมูล (parseCSV, layoutTree, drawTree)
+    // ... (ลอจิกการทำงานและฟังก์ชันหลัก) ...
 </script>
 </body>
 </html>
