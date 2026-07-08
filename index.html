@@ -2,243 +2,28 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Family Echo Simulator - Fix</title>
+    <title>🌳 ทำเนียบวงศ์ตระกูล (ปรับปรุง)</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f7f9fa;
-            padding: 20px;
-            text-align: center;
-        }
-
-        .tree-container {
-            max-width: 600px;
-            margin: 30px auto;
-            padding: 30px;
-            background: #ffffff;
-            border: 1px dashed #cbd5e1;
-            border-radius: 8px;
-        }
-
-        /* โครงสร้างโซนพ่อแม่ */
-        .parents-zone {
-            display: flex;
-            justify-content: center;
-            gap: 40px;
-            margin-bottom: 30px;
-        }
-
-        /* กล่องข้อความบุคคล */
-        .member-box {
-            width: 160px;
-            padding: 12px;
-            border-radius: 4px;
-            border: 1px solid #b8c0c8;
-            background-color: #f0f4f8;
-            text-align: left;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            display: inline-block;
-        }
-
-        /* สีเพศ */
-        .male { background-color: #e3f2fd; border-color: #90caf9; }
-        .female { background-color: #fce4ec; border-color: #f48fb1; }
-
-        .member-name { font-weight: bold; margin-bottom: 5px; color: #1e293b; }
-        .member-details { font-size: 12px; color: #64748b; }
-
-        /* ปุ่มกดจำลอง */
-        .btn-action {
-            display: block;
-            margin: 5px auto;
-            padding: 4px 10px;
-            font-size: 11px;
-            background-color: #34495e;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-        .btn-action:hover { background-color: #2c3e50; }
-
-        /* หน้าต่างกรอกข้อมูล (Modal) */
-        .modal-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
-            display: none; /* ซ่อนไว้เริ่มต้น */
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-
-        .modal-content {
-            width: 90%;
-            max-width: 400px;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: left;
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-        .form-group label {
-            display: block;
-            font-size: 13px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 6px;
-            box-sizing: border-box;
-            border: 1px solid #cbd5e1;
-            border-radius: 4px;
-        }
-
-        .btn-submit { background-color: #27ae60; color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; }
-        .btn-cancel { background-color: #e2e8f0; color: #4a5568; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; margin-right: 5px; }
-        
-        .hidden { display: none !important; }
+        body { font-family: sans-serif; background-color: #fcfbfa; margin: 0; overflow: hidden; }
+        #viewport { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+        #canvas { position: absolute; transform-origin: 0 0; }
+        .person { position: absolute; width: 140px; height: 50px; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; padding: 5px; cursor: pointer; }
+        .male { background-color: #e3f2fd; }
+        .female { background-color: #fce4ec; }
+        svg { position: absolute; top: 0; left: 0; pointer-events: none; }
     </style>
 </head>
 <body>
-
-<h3>คลิกที่ปุ่มเพื่อจำลองการกรอกข้อมูลและเพิ่มบุคคล</h3>
-
-<div class="tree-container">
-    
-    <!-- ส่วนของ พ่อ และ แม่ -->
-    <div class="parents-zone">
-        <!-- กล่องพ่อ (เริ่มต้นซ่อนไว้) -->
-        <div id="father-box" class="member-box male hidden">
-            <div id="father-name" class="member-name">ชื่อพ่อ</div>
-            <div id="father-details" class="member-details">ปีเกิด: -</div>
-        </div>
-
-        <!-- กล่องแม่ (เริ่มต้นซ่อนไว้) -->
-        <div id="mother-box" class="member-box female hidden">
-            <div id="mother-name" class="member-name">ชื่อแม่</div>
-            <div id="mother-details" class="member-details">ปีเกิด: -</div>
-        </div>
-    </div>
-
-    <!-- ส่วนของ ตัวคุณเอง (กล่องหลัก) -->
-    <div id="my-box" class="member-box male">
-        <div id="my-name" class="member-name">คุณ (ตัวคุณเอง)</div>
-        <div id="my-details" class="member-details">ปีเกิด: -</div>
-    </div>
-
-    <!-- แผงปุ่มควบคุมหลักที่กดได้แน่นอน -->
-    <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
-        <button class="btn-action" onclick="showForm('me')">แก้ไขข้อมูลตัวเอง</button>
-        <button id="btn-add-father" class="btn-action" style="background-color: #2980b9;" onclick="showForm('father')">+ เพิ่มข้อมูลพ่อ</button>
-        <button id="btn-add-mother" class="btn-action" style="background-color: #e085a6;" onclick="showForm('mother')">+ เพิ่มข้อมูลแม่</button>
+<div id="viewport">
+    <div id="canvas">
+        <svg id="svg-layer"></svg>
+        <div id="nodes"></div>
     </div>
 </div>
-
-<!-- หน้าต่างกรอกข้อมูลป็อปอัพ -->
-<div id="input-modal" class="modal-overlay">
-    <div class="modal-content">
-        <h4 id="form-title" style="margin-top:0;">กรอกข้อมูลบุคคล</h4>
-        <form id="profile-form">
-            <!-- ซ่อนค่าเอาไว้ว่ากำลังกรอกให้ใคร -->
-            <input type="hidden" id="current-role">
-
-            <div class="form-group">
-                <label>ชื่อ-นามสกุล:</label>
-                <input type="text" id="input-name" required placeholder="เช่น สมชาย ใจดี">
-            </div>
-            
-            <div class="form-group">
-                <label>ปีเกิด (ค.ศ.):</label>
-                <input type="text" id="input-birth" placeholder="เช่น 1990">
-            </div>
-
-            <div class="form-group" id="gender-group">
-                <label>เพศ:</label>
-                <select id="input-gender">
-                    <option value="male">ชาย (สีฟ้า)</option>
-                    <option value="female">หญิง (สีชมพู)</option>
-                </select>
-            </div>
-
-            <div style="text-align: right; margin-top: 20px;">
-                <button type="button" class="btn-cancel" onclick="hideForm()">ยกเลิก</button>
-                <button type="submit" class="btn-submit">ตกลง (OK)</button>
-            </div>
-        </form>
-    </div>
-</div>
-
 <script>
-    const modal = document.getElementById('input-modal');
-    const form = document.getElementById('profile-form');
-
-    // ฟังก์ชันเปิดหน้าต่างกรอกข้อมูล
-    function showForm(role) {
-        document.getElementById('current-role').value = role;
-        const genderGroup = document.getElementById('gender-group');
-        
-        if (role === 'me') {
-            document.getElementById('form-title').innerText = "แก้ไขข้อมูล: ตัวคุณเอง";
-            genderGroup.style.display = "block"; // ตัวเองเลือกเพศได้
-        } else if (role === 'father') {
-            document.getElementById('form-title').innerText = "เพิ่มข้อมูล: พ่อ";
-            genderGroup.style.display = "none";  // พ่อล็อกเพศชาย
-            document.getElementById('input-gender').value = "male";
-        } else if (role === 'mother') {
-            document.getElementById('form-title').innerText = "เพิ่มข้อมูล: แม่";
-            genderGroup.style.display = "none";  // แม่ล็อกเพศหญิง
-            document.getElementById('input-gender').value = "female";
-        }
-        
-        modal.style.display = 'flex'; // แสดงหน้าต่างกรอกข้อมูล
-    }
-
-    // ฟังก์ชันปิดหน้าต่าง
-    function hideForm() {
-        modal.style.display = 'none';
-        form.reset();
-    }
-
-    // เมื่อกรอกเสร็จแล้วกดปุ่ม ตกลง
-    form.addEventListener('submit', function(e) {
-        e.preventDefault(); // ป้องกันหน้าเว็บรีเฟรช
-        
-        const role = document.getElementById('current-role').value;
-        const nameValue = document.getElementById('input-name').value;
-        const birthValue = document.getElementById('input-birth').value || '-';
-        const genderValue = document.getElementById('input-gender').value;
-
-        if (role === 'me') {
-            document.getElementById('my-name').innerText = nameValue;
-            document.getElementById('my-details').innerText = "ปีเกิด: " + birthValue;
-            document.getElementById('my-box').className = "member-box " + genderValue;
-        } 
-        else if (role === 'father') {
-            // แสดงกล่องพ่อ คัดลอกค่าไปใส่ และซ่อนปุ่มเพิ่มพ่อ
-            const fatherBox = document.getElementById('father-box');
-            fatherBox.classList.remove('hidden');
-            document.getElementById('father-name').innerText = nameValue;
-            document.getElementById('father-details').innerText = "ปีเกิด: " + birthValue;
-            document.getElementById('btn-add-father').classList.add('hidden');
-        } 
-        else if (role === 'mother') {
-            // แสดงกล่องแม่ คัดลอกค่าไปใส่ และซ่อนปุ่มเพิ่มแม่
-            const motherBox = document.getElementById('mother-box');
-            motherBox.classList.remove('hidden');
-            document.getElementById('mother-name').innerText = nameValue;
-            document.getElementById('mother-details').innerText = "ปีเกิด: " + birthValue;
-            document.getElementById('btn-add-mother').classList.add('hidden');
-        }
-
-        hideForm(); // ปิดฟอร์มกลับสู่หน้าหลัก
-    });
+    // [สคริปต์วาดโครงสร้างวงศ์ตระกูล (SVG)]
+    const DATA_URL = "https://google.com";
+    // ... ฟังก์ชันโหลด/จัดการข้อมูล (parseCSV, layoutTree, drawTree)
 </script>
-
 </body>
 </html>
