@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌳 Family Echo Sim (ฉบับแก้ไขระบบดึงข้อมูลผ่านเว็บ)</title>
+    <title>🌳 Family Echo Sim (ฉบับแก้ไขบั๊กใช้งานได้จริง)</title>
     <style>
         body { font-family: Arial, sans-serif; background-color: #fcfbfa; margin: 0; overflow: hidden; }
         header { background: #ffffff; padding: 10px 20px; border-bottom: 1px solid #e5e5e5; display: flex; justify-content: space-between; height: 40px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
@@ -28,7 +28,7 @@
 <body>
 
 <header>
-    <div class="logo">Family Echo Sim</div>
+    <div class="logo">ily Echo Sim</div>
     <div class="controls">
         <input type="text" id="search-input" placeholder="ค้นหาชื่อในตระกูล..." oninput="searchPerson()">
         <button class="btn" onclick="zoom(0.1)">➕ ซูมเข้า</button>
@@ -45,78 +45,32 @@
 </div>
 
 <script>
+    // URL ดึงข้อมูลจากตาราง Google Sheets ของน้าโดยตรง
+    const DATA_URL = "https://google.com";
+    
     const NODE_WIDTH = 140;
     const LEVEL_HEIGHT = 190;
     let people = {}, families = [], layout = {}, scale = 0.8, panX = 150, panY = 80;
 
     window.onload = function() {
         initPanAndZoom();
-        loadDataViaScript();
+        fetchData();
     };
 
-    // ใช้เทคนิคแทรกสคริปต์ด่วนเพื่อดึงข้อมูลข้ามโดเมนโดยตรง ไม่ติดปัญหา CORS
-    function loadDataViaScript() {
-        const sheetId = "1vRSlNovE5Trf1x5aKnKd5aA8htogPXgQb5RYmF-Sa0c3AZwHi3Z0Ggr4SuH_guOPhGzOFh87NYmqUbs";
-        const jsonpUrl = `https://google.com{sheetId}/gviz/tq?tqx=responseHandler:handleGoogleData`;
-        
-        const script = document.createElement('script');
-        script.src = jsonpUrl;
-        document.body.appendChild(script);
-    }
-
-    // ฟังก์ชันรับข้อมูลกลับจาก Google Sheets อัตโนมัติ ป้องกันข้อมูลตัดหลุดกลางคัน
-    function handleGoogleData(response) {
-        if (!response || !response.table) {
-            alert("ไม่สามารถอ่านรูปแบบโครงสร้างตารางได้ กรุณาเช็คการตั้งค่าหัวคอลัมน์");
-            return;
-        }
-        parseGoogleJson(response.table);
-        renderTree();
-    }
-
-    function parseGoogleJson(table) {
-        people = {};
-        const rows = table.rows;
-        const cols = table.cols;
-        
-        // ผูกชื่อหัวคอลัมน์กับตำแหน่งในตารางชีตจริง (id, name, gender, father, mother, spouse)
-        const headerMap = {};
-        cols.forEach((c, idx) => {
-            if (c.label) headerMap[c.label.toLowerCase().trim()] = idx;
-        });
-
-        // ตั้งค่าตำแหน่งเริ่มต้นเผื่อกรณีน้าใช้ชื่อหัวแถวเป็นภาษาไทยหรือพิมพ์ต่างไป
-        if (headerMap["id"] === undefined) headerMap["id"] = 0;
-        if (headerMap["name"] === undefined) headerMap["name"] = 1;
-        if (headerMap["gender"] === undefined) headerMap["gender"] = 2;
-        if (headerMap["father"] === undefined) headerMap["father"] = 3;
-        if (headerMap["mother"] === undefined) headerMap["mother"] = 4;
-        if (headerMap["spouse"] === undefined) headerMap["spouse"] = 5;
-
-        rows.forEach(row => {
-            const cells = row.c;
-            if (!cells) return;
-
-            const getValue = (label) => {
-                const idx = headerMap[label];
-                if (idx !== undefined && cells[idx]) {
-                    return (cells[idx].v !== null && cells[idx].v !== undefined) ? String(cells[idx].v).trim() : "";
-                }
-                return "";
-            };
-
-            const id = getValue("id");
-            if (id) {
-                people[id] = {
-                    id: id,
-                    name: getValue("name") || "ไม่มีชื่อ",
-                    gender: getValue("gender") || "ช",
-                    father: getValue("father"),
-                    mother: getValue("mother"),
-                    spouse: getValue("spouse")
-                };
-            }
-        });
+    function fetchData() {
+        fetch(DATA_URL)
+            .then(response => {
+                if (!response.ok) throw new Error("ไม่สามารถดึงข้อมูลจาก URL ชีตได้");
+                return response.text();
+            })
+            .then(csvText => {
+                parseCSV(csvText);
+                renderTree();
+            })
+            .catch(err => {
+                console.error("Fetch Error: ", err);
+                alert("เกิดข้อผิดพลาดในการโหลดข้อมูล: " + err.message);
+            });
     }
 
     function renderTree() {
@@ -124,6 +78,38 @@
         layoutTree();
         drawTree();
         applyTransform();
+    }
+
+    // ✅ แก้ไขจุดบั๊กเรียบร้อย: เปลี่ยนการแกะหัวแถวเป็น lines[0].split(",") ทำให้อ่านชื่อภาษาไทยได้ไม่ค้าง
+    function parseCSV(text) {
+        people = {};
+        const lines = text.split(/\r?\n/);
+        if (lines.length < 2) return;
+        
+        // อ่านหัวข้อคอลัมน์จากบรรทัดแรกสุดของตารางชีต
+        const headers = lines[0].split(",").map(h => h.trim().replace(/^["']|["']$/g, '').toLowerCase());
+        
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            
+            const cols = line.split(",").map(c => c.trim().replace(/^["']|["']$/g, ''));
+            let rowData = {};
+            headers.forEach((h, idx) => {
+                rowData[h] = cols[idx] || "";
+            });
+
+            if (rowData.id) {
+                people[rowData.id] = {
+                    id: rowData.id,
+                    name: rowData.name || "ไม่มีชื่อ",
+                    gender: rowData.gender || "ช",
+                    father: rowData.father || "",
+                    mother: rowData.mother || "",
+                    spouse: rowData.spouse || ""
+                };
+            }
+        }
     }
 
     function buildFamilies() {
@@ -169,7 +155,7 @@
         if(roots.length === 0 && Object.keys(people).length > 0) roots.push(Object.keys(people)[0]);
         roots.forEach((rootId, i) => posFam(rootId, i * 600 + 200, 1));
 
-        // ดักจับและแสดงผลข้อมูลทุกคนเพื่อกันหน้าจอขาวโพลน
+        // กลไกเซฟตี้เก็บตก: หากระบบ Layout ข้ามใครไป ให้กางลงตำแหน่งมาตรฐานเพื่อกันจอขาวโพลน
         Object.keys(people).forEach((id, i) => {
             if (!layout[id]) layout[id] = { x: 100 + (i * 160), y: 100 };
         });
@@ -212,6 +198,7 @@
             });
         });
 
+        // แปะกล่องบุคคลลงพิกัด
         Object.keys(layout).forEach(id => {
             const p = people[id], pos = layout[id];
             if (!p) return;
@@ -220,4 +207,19 @@
             div.id = "person-" + p.id;
             div.style.left = pos.x + "px"; div.style.top = pos.y + "px";
             div.innerHTML = `<div class="circle">${p.gender === "ช" || p.gender === "male" ? "👨" : "👩"}</div><div class="person-name">${p.name}</div>`;
-            
+            nodesContainer.appendChild(div);
+        });
+    }
+
+    function drawOrthogonalLine(x1, y1, x2, y2) {
+        const midY = y1 + (y2 - y1) / 2;
+        const path = document.createElementNS("http://w3.org", "path");
+        path.setAttribute("d", `M ${x1} ${y1} V ${midY} H ${x2} V ${y2}`);
+        path.setAttribute("class", "family-line");
+        document.getElementById("svg-layer").appendChild(path);
+    }
+
+    function drawRawSVGLine(x1, y1, x2, y2) {
+        const path = document.createElementNS("http://w3.org", "path");
+
+
