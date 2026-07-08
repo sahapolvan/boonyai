@@ -1,215 +1,119 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌳 Family Echo Sim (ฉบับเสถียร 100% ไม่มีจอขาว)</title>
-    <style>
-        body { font-family: Arial, sans-serif; background-color: #fcfbfa; margin: 0; overflow: hidden; }
-        header { background: #ffffff; padding: 10px 20px; border-bottom: 1px solid #e5e5e5; display: flex; justify-content: space-between; height: 40px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .logo { font-size: 20px; font-weight: bold; color: #1a237e; font-family: 'Georgia', serif; }
-        .controls { display: flex; gap: 10px; align-items: center; }
-        .btn { padding: 6px 12px; background: #34495e; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
-        .btn:hover { background: #2c3e50; }
-        #search-input { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 180px; }
-        #viewport { width: 100vw; height: calc(100vh - 60px); position: relative; overflow: hidden; cursor: grab; }
-        #canvas { position: absolute; transform-origin: 0 0; width: 5000px; height: 5000px; }
-        svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
-        .family-line { stroke: #b8c0c8; stroke-width: 2; fill: none; }
-        #nodes-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; }
-        .person { position: absolute; width: 140px; height: 50px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; padding: 5px; box-sizing: border-box; box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
-        .person.highlight { border: 2px solid #e74c3c; background-color: #fdf2f2; }
-        .circle { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 8px; flex-shrink: 0; font-size: 16px; }
-        .male { background-color: #e3f2fd; border: 1px solid #90caf9; }
-        .female { background-color: #fce4ec; border: 1px solid #f48fb1; }
-        .person-name { font-size: 12px; font-weight: bold; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    </style>
+  <meta charset="UTF-8">
+  <title>แผนผังครอบครัวอัตโนมัติ</title>
+  <!-- โหลดไลบรารี GoJS สำเร็จรูปสำหรับจัดการกราฟและเส้นโยง -->
+  <script src="https://unpkg.com"></script>
 </head>
 <body>
 
-<header>
-    <div class="logo">Family Echo Sim</div>
-    <div class="controls">
-        <input type="text" id="search-input" placeholder="ค้นหาชื่อในตระกูล..." oninput="searchPerson()">
-        <button class="btn" onclick="zoom(0.1)">➕ ซูมเข้า</button>
-        <button class="btn" onclick="zoom(-0.1)">➖ ซูมออก</button>
-        <button class="btn" onclick="resetView()">🔄 รีเซ็ตมุมมอง</button>
-    </div>
-</header>
+  <!-- ส่วนแสดงผลแผนผัง กำหนดขนาดความกว้าง-สูง ตรงนี้ได้ -->
+  <div id="myDiagramDiv" style="width:100%; height:800px; border:1px solid #ccc; background-color: #f8f9fa;"></div>
 
-<div id="viewport">
-    <div id="canvas">
-        <svg id="svg-layer"></svg>
-        <div id="nodes-container"></div>
-    </div>
-</div>
+  <script>
+    // 1. นำข้อมูลจาก Database/Google Sheets ของคุณมาใส่ในรูปแบบ Array
+    const rawData = [
+      {id:1, name:"เภา", father:"", mother:"", spouse:"2", gender:"ช"},
+      {id:2, name:"สวัสดิ์", father:"", mother:"", spouse:"1", gender:"ญ"},
+      {id:3, name:"คำเบ้า", father:"1", mother:"2", spouse:"4", gender:"ญ"},
+      {id:4, name:"เดช", father:"", mother:"", spouse:"3", gender:"ช"},
+      {id:5, name:"เชย", father:"1", mother:"2", spouse:"6", gender:"ช"},
+      {id:6, name:"นวล", father:"", mother:"", spouse:"5", gender:"ญ"},
+      {id:7, name:"เหมย", father:"1", mother:"2", spouse:"8", gender:"ช"},
+      {id:8, name:"โอ๊ะ", father:"", mother:"", spouse:"7", gender:"ญ"},
+      {id:9, name:"เกย", father:"1", mother:"2", spouse:"10", gender:"ญ"},
+      {id:10, name:"บุญช้อน", father:"", mother:"", spouse:"9", gender:"ช"},
+      {id:11, name:"แอ้", father:"1", mother:"2", spouse:"", gender:"ช"},
+      {id:12, name:"แม้ว", father:"4", mother:"3", spouse:"20|25|26", gender:"ช"},
+      {id:13, name:"ขวัญ", father:"4", mother:"3", spouse:"21", gender:"ญ"},
+      {id:14, name:"ตี๋", father:"5", mother:"6", spouse:"32|33|34", gender:"ช"},
+      {id:15, name:"ตู่", father:"5", mother:"6", spouse:"22", gender:"ช"},
+      {id:16, name:"ปุ๋ย", father:"7", mother:"8", spouse:"23", gender:"ญ"},
+      {id:17, name:"ป๊อบ", father:"7", mother:"8", spouse:"24", gender:"ญ"},
+      {id:18, name:"ทัด", father:"10", mother:"9", spouse:"", gender:"ช"},
+      {id:19, name:"แวน", father:"10", mother:"9", spouse:"", gender:"ช"},
+      {id:20, name:"น้อล", father:"", mother:"", spouse:"12", gender:"ญ"},
+      {id:21, name:"ตอง", father:"", mother:"", spouse:"13", gender:"ช"},
+      {id:22, name:"นุ้ย", father:"", mother:"", spouse:"15", gender:"ญ"},
+      {id:23, name:"แซม", father:"", mother:"", spouse:"16", gender:"ช"},
+      {id:24, name:"สมชาย", father:"", mother:"", spouse:"17", gender:"ช"},
+      {id:25, name:"ดาว", father:"", mother:"", spouse:"12", gender:"ญ"},
+      {id:26, name:"เบนซ์", father:"", mother:"", spouse:"12", gender:"ช"}, // ปรับให้สัมพันธ์กับเพศในรูป
+      {id:27, name:"เอ", father:"12", mother:"20", spouse:"", gender:"ญ"},
+      {id:28, name:"อิ๋ง", father:"12", mother:"20", spouse:"", gender:"ญ"},
+      {id:29, name:"โตนนท์", father:"21", mother:"13", spouse:"", gender:"ช"},
+      {id:30, name:"โมน่า", father:"21", mother:"13", spouse:"", gender:"ญ"},
+      {id:31, name:"อะตอม", father:"15", mother:"22", spouse:"", gender:"ญ"},
+      {id:32, name:"โค้ง", father:"", mother:"", spouse:"14", gender:"ช"},
+      {id:33, name:"ต้อง", father:"", mother:"", spouse:"14", gender:"ช"},
+      {id:34, name:"ตั้ม", father:"", mother:"", spouse:"14", gender:"ช"},
+      {id:35, name:"บี", father:"12", mother:"25", spouse:"", gender:"ญ"},
+      {id:36, name:"ซี", father:"12", mother:"26", spouse:"", gender:"ช"},
+      {id:37, name:"แป้ง", father:"23", mother:"16", spouse:"", gender:"ญ"},
+      {id:38, name:"ป๋อง", father:"23", mother:"16", spouse:"", gender:"ช"},
+      {id:39, name:"ภูผา", father:"24", mother:"17", spouse:"", gender:"ช"},
+      {id:40, name:"ภูเขา", father:"24", mother:"17", spouse:"", gender:"ญ"}
+    ];
 
-<script>
-    // ดึงไฟล์ข้อมูลดิบตรงจากแผ่นตารางชีตเครือญาติ 30 คนของน้า
-    const DATA_URL = "https://google.com";
-    
-    const NODE_WIDTH = 140;
-    const LEVEL_HEIGHT = 190;
-    let people = {}, families = [], layout = {}, scale = 0.8, panX = 150, panY = 80;
+    // 2. ฟังก์ชันเตรียมสร้างแผนผังตารางโครงสร้าง GoJS
+    const $ = go.GraphObject.make;
+    const myDiagram = $(go.Diagram, "myDiagramDiv", {
+      // ตั้งค่า Layout ให้ลากเส้นจัดกลุ่มแบบ Tree จากบนลงล่าง
+      layout: $(go.TreeLayout, { angle: 90, layerSpacing: 35, alternateAngle: 90 }),
+      "undoManager.isEnabled": true
+    });
 
-    window.onload = function() {
-        initPanAndZoom();
-        fetchData();
-    };
+    // 3. กำหนดหน้าตาของกล่องข้อความ (Node Template) แยกสี ชาย/หญิง
+    myDiagram.nodeTemplate =
+      $(go.Node, "Auto",
+        $(go.Shape, "RoundedRectangle", { strokeWidth: 1, fill: "white" },
+          // เปลี่ยนสีพื้นหลังกล่องตามเพศ: ช = สีฟ้าอ่อน, ญ = สีชมพูอ่อน
+          new go.Binding("fill", "gender", g => g === "ช" ? "#d1ecf1" : "#f8d7da"),
+          new go.Binding("stroke", "gender", g => g === "ช" ? "#bbeeeb" : "#f5c6cb")
+        ),
+        $(go.TextBlock, { margin: 8, font: "bold 14px Tahoma, sans-serif" },
+          new go.Binding("text", "name")
+        )
+      );
 
-    function fetchData() {
-        fetch(DATA_URL)
-            .then(response => {
-                if (!response.ok) throw new Error("Network Response Fail");
-                return response.text();
-            })
-            .then(csvText => {
-                parseCSV(csvText);
-                renderTree();
-            })
-            .catch(err => {
-                console.error("เกิดข้อผิดพลาดในการโหลดชีตออนไลน์ สลับมาใช้ข้อมูลภายในแทน: ", err);
-                loadFallbackData();
-            });
-    }
+    // 4. ฟังก์ชันสำหรับโยงเส้นเชื่อม (Link Template) ให้หักมุมฉาก 90 องศาเหมือนในรูป
+    myDiagram.linkTemplate =
+      $(go.Link, { routing: go.Link.Orthogonal, corner: 10 }, // Orthogonal = หักมุมฉาก, corner = ความโค้งมนของมุมฉาก
+        $(go.Shape, { strokeWidth: 2, stroke: "#6c757d" })   // ความหนาและสีของเส้นโยง
+      );
 
-    // ฟังก์ชันเซฟตี้ดักจับกรณีการถอดรหัสล้มเหลว (Try-Catch) เพื่อป้องกันหน้าจอว่างเปล่าเด็ดขาด
-    function parseCSV(text) {
-        try {
-            people = {};
-            const lines = text.split(/\r?\n/).map(line => line.trim()).filter(line => line.length > 0);
-            if (lines.length < 2) { loadFallbackData(); return; }
-            
-            // อ่านชื่อหัวคอลัมน์แบบปลอดภัย ไม่ใช้สคริปต์ดิ่งตรงพังง่าย
-            const firstLine = lines[0];
-            const headers = firstLine.split(",").map(h => h.trim().replace(/^["']|["']$/g, '').toLowerCase());
-            
-            for (let i = 1; i < lines.length; i++) {
-                const cols = lines[i].split(",").map(c => c.trim().replace(/^["']|["']$/g, ''));
-                let rowData = {};
-                headers.forEach((h, idx) => {
-                    if (h) rowData[h] = cols[idx] || "";
-                });
+    // 5. แปลงรูปแบบข้อมูลให้เข้ากับโครงสร้างกราฟ (Node & Link Data)
+    const nodeDataArray = [];
+    const linkDataArray = [];
 
-                if (rowData.id) {
-                    people[rowData.id] = {
-                        id: rowData.id,
-                        name: rowData.name || "ไม่มีชื่อ",
-                        gender: rowData.gender || "ช",
-                        father: rowData.father || "",
-                        mother: rowData.mother || "",
-                        spouse: rowData.spouse || ""
-                    };
-                }
-            }
-            if (Object.keys(people).length === 0) loadFallbackData();
-        } catch (e) {
-            console.error("บักการแกะโครงสร้าง CSV สลับเข้าโหมดเซฟตี้: ", e);
-            loadFallbackData();
-        }
-    }
+    rawData.forEach(item => {
+      // ใส่ข้อมูลบุคคลเข้าแผนผัง
+      nodeDataArray.push({ key: item.id, name: item.name, gender: item.gender });
 
-    // โครงสร้างข้อมูลเครือญาติแกนหลักของน้าที่จะถูกงัดขึ้นมาใช้ทันทีเพื่อค้ำประกันไม่ให้จอขาว
-    function loadFallbackData() {
-        people = {
-            "1": { id: "1", name: "ศรัณย์", gender: "ช", father: "", mother: "", spouse: "2" },
-            "2": { id: "2", name: "เยาว์", gender: "ญ", father: "", mother: "", spouse: "1" },
-            "3": { id: "3", name: "ติ๋ม", gender: "ญ", father: "1", mother: "2", spouse: "4" },
-            "4": { id: "4", name: "เฟื่อง", gender: "ช", father: "", mother: "", spouse: "3" },
-            "5": { id: "5", name: "แว่น", gender: "ญ", father: "1", mother: "2", spouse: "6" },
-            "6": { id: "6", name: "กรอบ", gender: "ช", father: "", mother: "", spouse: "5" },
-            "7": { id: "7", name: "ไพร", gender: "ญ", father: "1", mother: "2", spouse: "8" },
-            "8": { id: "8", name: "ดา", gender: "ช", father: "", mother: "", spouse: "7" }
-        };
-        renderTree();
-    }
-
-    function renderTree() {
-        buildFamilies();
-        layoutTree();
-        drawTree();
-        applyTransform();
-    }
-
-    function buildFamilies() {
-        families = [];
-        const familyMap = {};
-        Object.values(people).forEach(p => {
-            if (!p.father && !p.mother) return;
-            let key = (p.father || "unknown") + "|" + (p.mother || "unknown");
-            if (!familyMap[key]) familyMap[key] = { father: p.father, mother: p.mother, children: [] };
-            if (!familyMap[key].children.includes(p.id)) familyMap[key].children.push(p.id);
+      // ถ้ามีระบุพ่อ ให้ลากเส้นจากพ่อมาหาตัวเอง
+      if (item.father) {
+        linkDataArray.push({ from: item.father, to: item.id });
+      }
+      // ถ้ามีระบุแม่ ให้ลากเส้นจากแม่มาหาตัวเอง
+      if (item.mother) {
+        linkDataArray.push({ from: item.mother, to: item.id });
+      }
+      // จัดการเส้นเชื่อมคู่สมรส (Spouse)
+      if (item.spouse) {
+        const spouses = item.spouse.split('|');
+        spouses.forEach(sId => {
+          // ป้องกันการลากเส้นซ้ำซ้อน (เช่น 1 โยงไป 2 และ 2 โยงมา 1 ให้โยงแค่เส้นเดียว)
+          if (item.id < parseInt(sId)) {
+            linkDataArray.push({ from: item.id, to: parseInt(sId) });
+          }
         });
-        families = Object.values(familyMap);
-    }
+      }
+    });
 
-    function layoutTree() {
-        layout = {};
-        const visited = new Set();
-        
-        function posFam(pId, x, level) {
-            if (!pId || visited.has(pId)) return;
-            const p = people[pId];
-            if (!p) return;
-            
-            layout[pId] = { x: x, y: level * LEVEL_HEIGHT };
-            visited.add(pId);
+    // สั่งให้หน้าจอวาดผลลัพธ์ทันที
+    myDiagram.model = new go.GraphLinksModel(nodeDataArray, linkDataArray);
+  </script>
 
-            const fam = families.find(f => f.father === pId || f.mother === pId);
-            if (fam) {
-                if (fam.father && fam.mother) {
-                    const partnerId = (pId === fam.father) ? fam.mother : fam.father;
-                    if(people[partnerId] && !visited.has(partnerId)){
-                        layout[partnerId] = { x: x + 180, y: level * LEVEL_HEIGHT };
-                        visited.add(partnerId);
-                    }
-                }
-                fam.children.forEach((cId, i) => {
-                    posFam(cId, x + (i - (fam.children.length - 1) / 2) * 220, level + 1);
-                });
-            }
-        }
-
-        const roots = Object.keys(people).filter(id => !people[id].father && !people[id].mother);
-        if(roots.length === 0 && Object.keys(people).length > 0) roots.push(Object.keys(people)[0]);
-        roots.forEach((rootId, i) => posFam(rootId, i * 600 + 200, 1));
-
-        Object.keys(people).forEach((id, i) => {
-            if (!layout[id]) layout[id] = { x: 100 + (i * 160), y: 100 };
-        });
-    }
-
-    function drawTree() {
-        const nodesContainer = document.getElementById("nodes-container");
-        const svgLayer = document.getElementById("svg-layer");
-        nodesContainer.innerHTML = ""; svgLayer.innerHTML = "";
-        
-        const halfNode = NODE_WIDTH / 2;
-
-        families.forEach(fam => {
-            let parentCenterX = 0, parentCenterY = 0;
-            const fatherPos = layout[fam.father], motherPos = layout[fam.mother];
-            
-            if (fatherPos && motherPos) {
-                parentCenterX = (fatherPos.x + motherPos.x) / 2 + halfNode;
-                parentCenterY = fatherPos.y + 50; 
-                drawRawSVGLine(fatherPos.x + NODE_WIDTH, fatherPos.y + 25, motherPos.x, motherPos.y + 25);
-            } else if (fatherPos || motherPos) {
-                const p = fatherPos || motherPos;
-                parentCenterX = p.x + halfNode;
-                parentCenterY = p.y + 50;
-            }
-
-            if (parentCenterX === 0 || fam.children.length === 0) return;
-
-            const firstChildPos = layout[fam.children[0]];
-            if (!firstChildPos) return;
-
-            const dropY = parentCenterY + (firstChildPos.y - parentCenterY) / 2;
-            drawOrthogonalLine(parentCenterX, parentCenterY, parentCenterX, dropY);
-
-            fam.children.forEach(cId => {
-                const childPos = layout[cId];
-                if (!childPos) return;
-                const childCenterX = childPos.x + halfNode;
-
+</body>
+</html>
