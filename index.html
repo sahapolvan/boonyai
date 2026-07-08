@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌳 แผนผังวงศ์ตระกูลอัจฉริยะ (ดึงข้อมูล Google Sheets สด)</title>
+    <title>🌳 ทำเนียบวงศ์ตระกูลอัจฉริยะ (แก้ไขปัญหาระบบ CORS)</title>
     <style>
         body { font-family: Arial, sans-serif; background-color: #fcfbfa; margin: 0; overflow: hidden; }
         header { background: #ffffff; padding: 10px 20px; border-bottom: 1px solid #e5e5e5; display: flex; justify-content: space-between; height: 40px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
@@ -28,7 +28,7 @@
 <body>
 
 <header>
-    <div class="logo">Family Echo</div>
+    <div class="logo">Family o Sim</div>
     <div class="controls">
         <input type="text" id="search-input" placeholder="ค้นหาชื่อในตระกูล..." oninput="searchPerson()">
         <button class="btn" onclick="zoom(0.1)">➕ ซูมเข้า</button>
@@ -45,32 +45,71 @@
 </div>
 
 <script>
-    // URL สำหรับสตรีมข้อมูลดิบจากชีตของน้า
-    const DATA_URL = "https://google.com";
-    
+    // สลับมาใช้สถาปัตยกรรม Google Visualization API เพื่อแก้บั๊กเรื่องเว็บอื่นบล็อกความปลอดภัยดึงข้อมูลดิบ (CORS)
+    const SPREADSHEET_ID = "1vRSlNovE5Trf1x5aKnKd5aA8htogPXgQb5RYmF-Sa0c3AZwHi3Z0Ggr4SuH_guOPhGzOFh87NYmqUbs";
+    const GOOGLE_API_URL = `https://google.com{SPREADSHEET_ID}/gviz/tq?tqx=out:json`;
+
     const NODE_WIDTH = 140;
     const LEVEL_HEIGHT = 190;
     let people = {}, families = [], layout = {}, scale = 0.8, panX = 150, panY = 80;
 
     window.onload = function() {
         initPanAndZoom();
-        fetchData();
+        fetchGoogleData();
     };
 
-    function fetchData() {
-        fetch(DATA_URL)
-            .then(response => {
-                if (!response.ok) throw new Error("ไม่สามารถเปิดลิงก์ข้อมูลชีตได้");
-                return response.text();
-            })
-            .then(csvText => {
-                parseCSV(csvText);
+    // ฟังก์ชันดึงข้อมูลผ่านเทคนิคส่งค่ากลับพิเศษ (JSONP Bypass) ทะลุกรอบบล็อกความปลอดภัยเบราว์เซอร์
+    function fetchGoogleData() {
+        fetch(GOOGLE_API_URL)
+            .then(res => res.text())
+            .then(text => {
+                // ตัดแต่งข้อความดึงเฉพาะก้อนวัตถุ JSON ข้อมูลตารางภายใน
+                const rawJson = JSON.parse(text.substr(47).slice(0, -2));
+                parseGoogleJson(rawJson);
                 renderTree();
             })
             .catch(err => {
-                console.error(err);
-                alert("เกิดปัญหาระบบเครือข่ายในการติดต่อ Google Sheets: " + err.message);
+                console.error("เกิดข้อผิดพลาดคลังระบบ: ", err);
+                alert("กรุณาตรวจสอบว่า Google Sheets ตั้งค่าแชร์ลิ้งก์เป็นสาธารณะเรียบร้อยแล้วหรือยัง");
             });
+    }
+
+    // แปลงโครงสร้างข้อมูลจากพัสดุวัตถุของกูเกิลให้มาอยู่ในระบบกล่องเครือข่ายความสัมพันธ์บุคคล
+    function parseGoogleJson(json) {
+        people = {};
+        const rows = json.table.rows;
+        const cols = json.table.cols;
+        
+        // ค้นหาตำแหน่งหัวแถวโดยอิงจากชื่อฟิลด์คอลัมน์จริง
+        const headerMap = {};
+        cols.forEach((c, idx) => {
+            if(c.label) headerMap[c.label.toLowerCase().trim()] = idx;
+        });
+
+        rows.forEach(row => {
+            const cells = row.c;
+            if (!cells) return;
+
+            const getValue = (label) => {
+                const idx = headerMap[label];
+                if (idx !== undefined && cells[idx]) {
+                    return (cells[idx].v !== null && cells[idx].v !== undefined) ? String(cells[idx].v).trim() : "";
+                }
+                return "";
+            };
+
+            const id = getValue("id");
+            if (id) {
+                people[id] = {
+                    id: id,
+                    name: getValue("name") || "ไม่มีชื่อ",
+                    gender: getValue("gender") || "ช",
+                    father: getValue("father"),
+                    mother: getValue("mother"),
+                    spouse: getValue("spouse")
+                };
+            }
+        });
     }
 
     function renderTree() {
@@ -78,32 +117,6 @@
         layoutTree();
         drawTree();
         applyTransform();
-    }
-
-    // ระบบอ่านแถวตัวกรอง CSV ป้องกันคำภาษาไทยติดขัด
-    function parseCSV(text) {
-        people = {};
-        const lines = text.split(/\r?\n/);
-        if (lines.length < 2) return;
-        const headers = lines[0].split(",").map(h => h.trim().replace(/^["']|["']$/g, ''));
-        
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
-            const cols = line.split(",").map(c => c.trim().replace(/^["']|["']$/g, ''));
-            let rowData = {};
-            headers.forEach((h, idx) => rowData[h] = cols[idx] || "");
-            if (rowData.id) {
-                people[rowData.id] = {
-                    id: rowData.id,
-                    name: rowData.name || "ไม่มีชื่อ",
-                    gender: rowData.gender || "ช",
-                    father: rowData.father || "",
-                    mother: rowData.mother || "",
-                    spouse: rowData.spouse || ""
-                };
-            }
-        }
     }
 
     function buildFamilies() {
@@ -118,7 +131,6 @@
         families = Object.values(familyMap);
     }
 
-    // ระบบจัดสรรปีกเครือข่ายสายสัมพันธ์ ป้องกันการวนลูปจนหน้าต่างบราวเซอร์ค้าง
     function layoutTree() {
         layout = {};
         const visited = new Set();
@@ -150,13 +162,11 @@
         if(roots.length === 0 && Object.keys(people).length > 0) roots.push(Object.keys(people)[0]);
         roots.forEach((rootId, i) => posFam(rootId, i * 600 + 200, 1));
 
-        // กลไกป้องกันจอขาว: เก็บรวบรวมคนที่สูตรจัดแผนผังคำนวณข้ามไปให้ขึ้นหน้าจอครบทั้งหมด
         Object.keys(people).forEach((id, i) => {
             if (!layout[id]) layout[id] = { x: 100 + (i * 160), y: 100 };
         });
     }
 
-    // ระบบวาดกิ่งก้านและสายสัมพันธ์สลับฉากด้วย SVG พิกัดศูนย์กลาง
     function drawTree() {
         const nodesContainer = document.getElementById("nodes-container");
         const svgLayer = document.getElementById("svg-layer");
@@ -184,15 +194,12 @@
             if (!firstChildPos) return;
 
             const dropY = parentCenterY + (firstChildPos.y - parentCenterY) / 2;
-            
-            // เส้นดิ่งแกนกลางผ่ากึ่งกลางระหว่างคู่รัก
             drawOrthogonalLine(parentCenterX, parentCenterY, parentCenterX, dropY);
 
             fam.children.forEach(cId => {
                 const childPos = layout[cId];
                 if (!childPos) return;
                 const childCenterX = childPos.x + halfNode;
-                // วาดเส้นสลักฉากหักมุมผ่ากลางหัวกล่องโหนดย่อยของลูกๆ แต่ละคน
                 drawOrthogonalLine(parentCenterX, dropY, childCenterX, childPos.y);
             });
         });
@@ -213,9 +220,4 @@
         const midY = y1 + (y2 - y1) / 2;
         const path = document.createElementNS("http://w3.org", "path");
         path.setAttribute("d", `M ${x1} ${y1} V ${midY} H ${x2} V ${y2}`);
-        path.setAttribute("class", "family-line");
-        document.getElementById("svg-layer").appendChild(path);
-    }
-
-    function drawRawSVGLine(x1, y1, x2, y2) {
-
+        
