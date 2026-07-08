@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Echo Simulator - ข้อมูลบุคคล</title>
+    <style>
+        /* สไตล์พื้นฐาน เลียนแบบโทนสีและฟอนต์ของ Family Echo */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f7f9fa;
+            color: #333333;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 650px;
+            background-color: #ffffff;
+            margin: 0 auto;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border: 1px solid #e1e4e6;
+        }
+
+        h2 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 8px;
+            margin-top: 0;
+            font-size: 22px;
+        }
+
+        /* การจัดแท็บหมวดหมู่เลียนแบบต้นฉบับ */
+        .tabs {
+            display: flex;
+            background-color: #f0f3f5;
+            padding: 5px 5px 0 5px;
+            border-radius: 6px 6px 0 0;
+            border-bottom: 1px solid #ccc;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #555;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .tab.active {
+            background-color: #ffffff;
+            color: #3498db;
+            border: 1px solid #ccc;
+            border-bottom: 1px solid #fff;
+            border-radius: 4px 4px 0 0;
+            margin-bottom: -1px;
+        }
+
+        /* การจัดวางฟอร์มกรอกข้อมูล */
+        .form-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            width: 140px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #4a5568;
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+            flex: 1;
+            padding: 6px 10px;
+            font-size: 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 3px rgba(52, 152, 219, 0.3);
+        }
+
+        .row-inline {
+            display: flex;
+            gap: 15px;
+            width: 100%;
+        }
+
+        /* ปุ่มกด */
+        .button-group {
+            margin-top: 25px;
+            padding-top: 15px;
+            border-top: 1px solid #e2e8f0;
+            text-align: right;
+        }
+
+        .btn {
+            padding: 8px 20px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            border: none;
+            margin-left: 8px;
+        }
+
+        .btn-primary {
+            background-color: #27ae60;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #219653;
+        }
+
+        .btn-secondary {
+            background-color: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn-secondary:hover {
+            background-color: #cbd5e1;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>แก้ไขข้อมูลบุคคล (Family Echo Sim)</h2>
+    
+    <!-- เมนูแท็บด้านบน -->
+    <div class="tabs">
+        <button class="tab active">Personal</button>
+        <button class="tab">Partners</button>
+        <button class="tab">Contact</button>
+        <button class="tab">Biography</button>
+    </div>
+
+    <!-- ฟอร์มกรอกข้อมูล -->
+    <form>
+        <div class="form-group">
+            <label for="given-name">Given names:</label>
+            <input type="text" id="given-name" name="given-name" placeholder="ชื่อจริง">
+        </div>
+
+        <div class="form-group">
+            <label for="middle-name">Middle names:</label>
+            <input type="text" id="middle-name" name="middle-name">
+        </div>
+
+        <div class="form-group">
+            <label for="surname-now">Surname now:</label>
+            <input type="text" id="surname-now" name="surname-now" placeholder="นามสกุลปัจจุบัน">
+        </div>
+
+        <div class="form-group">
+            <label for="surname-birth">Surname at birth:</label>
+            <input type="text" id="surname-birth" name="surname-birth" placeholder="นามสกุลตอนเกิด">
+        </div>
+
+        <div class="form-group">
+            <label for="nickname">Nickname:</label>
+            <input type="text" id="nickname" name="nickname">
+        </div>
+
+        <div class="form-group">
+            <label for="gender">Gender:</label>
+            <select id="gender" name="gender">
+                <option value="">-- เลือกเพศ --</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="birth-date">Birth date:</label>
+            <input type="text" id="birth-date" name="birth-date" placeholder="เช่น 1 ม.ค. 1990">
+        </div>
+
+        <div class="form-group">
+            <label for="birth-place">Birth place:</label>
+            <input type="text" id="birth-place" name="birth-place">
+        </div>
+
+        <div class="form-group">
+            <label for="death-date">Death date:</label>
+            <input type="text" id="death-date" name="death-date" placeholder="ปล่อยว่างไว้หากยังมีชีวิต">
+        </div>
+
+        <div class="form-group">
+            <label for="profession">Profession:</label>
+            <input type="text" id="profession" name="profession" placeholder="อาชีพ">
+        </div>
+
+        <div class="form-group">
+            <label for="company">Company:</label>
+            <input type="text" id="company" name="company" placeholder="บริษัท/หน่วยงาน">
+        </div>
+
+        <div class="form-group">
+            <label for="bio-notes">Bio notes:</label>
+            <textarea id="bio-notes" name="bio-notes" rows="3" placeholder="บันทึกประวัติเพิ่มเติม..."></textarea>
+        </div>
+
+        <!-- ปุ่มกดยืนยันการทำงาน -->
+        <div class="button-group">
+            <button type="button" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary">OK</button>
+        </div>
+    </form>
+</div>
+
+</body>
+</html>
