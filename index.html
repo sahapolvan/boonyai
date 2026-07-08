@@ -3,29 +3,186 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌳 ทำเนียบวงศ์ตระกูล (รวมไฟล์เดียว)</title>
+    <title>🌳 แผนผังวงศ์ตระกูลอัจฉริยะ (ฉบับสมบูรณ์)</title>
     <style>
-        /* สไตล์ CSS: จัดรูปแบบผัง, กล่องบุคคล, และ SVG เส้นเชื่อม */
+        /* สไตล์ CSS สำหรับแสดงผลผังต้นไม้, การจัดหน้าจอ, และสีแยกเพศ (ชาย-ฟ้า/หญิง-ชมพู) */
         body { font-family: Arial, sans-serif; background-color: #fcfbfa; margin: 0; overflow: hidden; }
-        header { background: #fff; padding: 10px; border-bottom: 1px solid #e5e5e5; display: flex; justify-content: space-between; }
+        header { background: #ffffff; padding: 10px 20px; border-bottom: 1px solid #e5e5e5; display: flex; justify-content: space-between; height: 40px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .logo { font-size: 20px; font-weight: bold; color: #1a237e; font-family: 'Georgia', serif; }
+        .controls { display: flex; gap: 10px; align-items: center; }
+        .btn { padding: 6px 12px; background: #34495e; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
+        .btn:hover { background: #2c3e50; }
+        #search-input { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; width: 180px; }
         #viewport { width: 100vw; height: calc(100vh - 60px); position: relative; overflow: hidden; cursor: grab; }
         #canvas { position: absolute; transform-origin: 0 0; width: 5000px; height: 5000px; }
         svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        .family-line { stroke: #b8c0c8; stroke-width: 2; fill: none; }
+        .heart-icon { font-size: 16px; fill: #e74c3c; pointer-events: none; }
         #nodes-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; }
-        .person { position: absolute; width: 140px; height: 50px; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; padding: 5px; box-sizing: border-box; cursor: pointer; }
-        .person.highlight { border: 2px solid #e74c3c; background-color: #fdf2f2; }
-        .circle { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 8px; flex-shrink: 0; }
+        .person { position: absolute; width: 140px; height: 50px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; padding: 5px; box-sizing: border-box; box-shadow: 0 2px 4px rgba(0,0,0,0.08); transition: border-color 0.2s, box-shadow 0.2s; }
+        .person:hover { box-shadow: 0 4px 8px rgba(0,0,0,0.15); border-color: #94a3b8; }
+        .person.highlight { border: 2px solid #e74c3c; background-color: #fdf2f2; animation: pulse 1s infinite alternate; }
+        @keyframes pulse { from { box-shadow: 0 0 4px #e74c3c; } to { box-shadow: 0 0 12px #e74c3c; } }
+        .circle { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 8px; flex-shrink: 0; font-size: 16px; }
         .male { background-color: #e3f2fd; border: 1px solid #90caf9; }
         .female { background-color: #fce4ec; border: 1px solid #f48fb1; }
-        .person-name { font-size: 12px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .person-name { font-size: 12px; font-weight: bold; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     </style>
 </head>
 <body>
-<!-- ... (โค้ด HTML ส่วนอื่นที่จำเป็น) ... -->
+
+<header>
+    <div class="logo">Family Echo Sim</div>
+    <div class="controls">
+        <input type="text" id="search-input" placeholder="ค้นหาชื่อในตระกูล..." oninput="searchPerson()">
+        <button class="btn" onclick="zoom(0.1)">➕ ซูมเข้า</button>
+        <button class="btn" onclick="zoom(-0.1)">➖ ซูมออก</button>
+        <button class="btn" onclick="resetView()">🔄 รีเซ็ตมุมมอง</button>
+    </div>
+</header>
+
+<div id="viewport">
+    <div id="canvas">
+        <svg id="svg-layer"></svg>
+        <div id="nodes-container"></div>
+    </div>
+</div>
+
 <script>
-    // สคริปต์รวมลอจิกทั้งหมด (Data, Layout, Draw)
+    // ดึงข้อมูล CSV จาก Google Sheets
     const DATA_URL = "https://google.com";
-    // ... (ลอจิกการทำงานและฟังก์ชันหลัก) ...
+    
+    // ตั้งค่ามิติพิกัด
+    const NODE_WIDTH = 140;
+    const LEVEL_HEIGHT = 190;
+    let people = {}, families = [], layout = {}, scale = 1, panX = 50, panY = 50;
+
+    window.onload = function() {
+        initPanAndZoom();
+        fetchData();
+    };
+
+    // ฟังก์ชันหลักดึงและประมวลผลข้อมูล
+    function fetchData() {
+        fetch(DATA_URL)
+            .then(response => response.text())
+            .then(csvText => {
+                parseCSV(csvText);
+                buildFamilies();
+                layoutTree();
+                drawTree();
+                resetView();
+            })
+            .catch(err => alert("ไม่สามารถดึงข้อมูลได้: " + err));
+    }
+
+    // แปลง CSV เป็น Object
+    function parseCSV(text) {
+        people = {};
+        const lines = text.split("\n");
+        const headers = lines[0].split(",").map(h => h.trim().replace(/"/g, ''));
+        for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            const cols = lines[i].split(",").map(c => c.trim().replace(/"/g, ''));
+            let rowData = {};
+            headers.forEach((h, idx) => rowData[h] = cols[idx] || "");
+            if (rowData.id) people[rowData.id] = { ...rowData, name: rowData.name || "ไม่มีชื่อ", gender: rowData.gender || "ช" };
+        }
+    }
+
+    // สร้างความสัมพันธ์ครอบครัว
+    function buildFamilies() {
+        families = [];
+        const familyMap = {};
+        Object.values(people).forEach(p => {
+            if (!p.father && !p.mother) return;
+            let key = (p.father || "") + "|" + (p.mother || "");
+            if (!familyMap[key]) familyMap[key] = { father: p.father, mother: p.mother, children: [] };
+            familyMap[key].children.push(p.id);
+        });
+        families = Object.values(familyMap);
+    }
+
+    // คำนวณตำแหน่งโหนด (Layout Algorithm)
+    function layoutTree() {
+        layout = {};
+        const visited = new Set();
+        function posFam(pId, x, level) {
+            if (!pId || visited.has(pId)) return;
+            const p = people[pId];
+            if (!p) return;
+            layout[pId] = { x: x, y: level * LEVEL_HEIGHT + 100 };
+            visited.add(pId);
+            // จัดการคู่นอน (Simplified)
+            if (p.spouse) p.spouse.split("|").forEach(sId => { if(people[sId]) visited.add(sId); });
+            // จัดการลูก
+            const fam = families.find(f => f.father == pId || f.mother == pId);
+            if (fam) fam.children.forEach((cId, i) => posFam(cId, x + (i-1)*200, level + 1));
+        }
+        const roots = Object.keys(people).filter(id => !people[id].father && !people[id].mother);
+        roots.forEach((rootId, i) => posFam(rootId, i * 400, 1));
+    }
+
+    // วาดเส้นเชื่อมและกล่อง (SVG + DOM)
+    function drawTree() {
+        const nodesContainer = document.getElementById("nodes-container");
+        const svgLayer = document.getElementById("svg-layer");
+        nodesContainer.innerHTML = ""; svgLayer.innerHTML = "";
+        
+        // วาดเส้นเชื่อมระหว่างพ่อแม่ลูก
+        families.forEach(fam => {
+            const p1 = layout[fam.father] || layout[fam.mother];
+            if (!p1) return;
+            fam.children.forEach(cId => {
+                const p2 = layout[cId];
+                if (p2) drawSVGLine(p1.x + 70, p1.y + 50, p2.x + 70, p2.y);
+            });
+        });
+
+        // วาดกล่องบุคคล
+        Object.keys(layout).forEach(id => {
+            const p = people[id], pos = layout[id], div = document.createElement("div");
+            div.className = `person ${p.gender === "ช" ? "male" : "female"}`;
+            div.id = "person-" + p.id;
+            div.style.left = pos.x + "px"; div.style.top = pos.y + "px";
+            div.innerHTML = `<div class="circle">${p.gender === "ช" ? "👨" : "👩"}</div><div class="person-name">${p.name}</div>`;
+            nodesContainer.appendChild(div);
+        });
+    }
+
+    function drawSVGLine(x1, y1, x2, y2) {
+        const path = document.createElementNS("http://w3.org", "path");
+        path.setAttribute("d", `M ${x1} ${y1} V ${(y1+y2)/2} H ${x2} V ${y2}`);
+        path.setAttribute("class", "family-line");
+        document.getElementById("svg-layer").appendChild(path);
+    }
+
+    // ระบบ Pan & Zoom
+    function initPanAndZoom() {
+        const viewport = document.getElementById("viewport");
+        let isDragging = false, startX, startY;
+        viewport.addEventListener("mousedown", e => { if (e.target.closest('.person')) return; isDragging = true; startX = e.clientX - panX; startY = e.clientY - panY; });
+        window.addEventListener("mousemove", e => { if (!isDragging) return; panX = e.clientX - startX; panY = e.clientY - startY; applyTransform(); });
+        window.addEventListener("mouseup", () => isDragging = false);
+        viewport.addEventListener("wheel", e => { e.preventDefault(); zoom(e.deltaY < 0 ? 0.1 : -0.1); });
+    }
+    function zoom(amount) { scale = Math.min(Math.max(scale + amount, 0.2), 2); applyTransform(); }
+    function applyTransform() { document.getElementById("canvas").style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`; }
+    function resetView() { scale = 0.7; panX = 100; panY = 50; applyTransform(); }
+
+    // ค้นหา
+    function searchPerson() {
+        const query = document.getElementById("search-input").value.toLowerCase();
+        document.querySelectorAll(".person").forEach(el => el.classList.remove("highlight"));
+        if (!query) return;
+        Object.values(people).forEach(p => {
+            if (p.name.toLowerCase().includes(query)) {
+                const el = document.getElementById("person-" + p.id);
+                if (el) el.classList.add("highlight");
+            }
+        });
+    }
 </script>
+
 </body>
 </html>
