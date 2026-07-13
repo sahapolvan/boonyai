@@ -3,146 +3,230 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>เปรียบเทียบผังครอบครัว (Google Sheets vs GitHub)</title>
-    
-    <!-- นำเข้าไลบรารี Open Source ฟรี 100% -->
+    <title>เปรียบเทียบผังครอบครัวและข้อมูลดิบ (4 กรอบ)</title>
+    <!-- ใช้ d3.js เวอร์ชันมาตรฐานตัวเดียวจบ -->
     <script src="https://unpkg.com"></script>
-    <script type="module" src="https://unpkg.com"></script>
-    <link rel="stylesheet" href="https://unpkg.com/dist/styles.css">
-    
     <style>
-        body { margin: 0; padding: 0; font-family: sans-serif; background-color: #f0f2f5; }
+        body { margin: 0; padding: 0; font-family: sans-serif; background-color: #f4f6f9; box-sizing: border-box; }
         
-        /* แบ่งหน้าจอเป็น 2 กรอบเท่ากัน ซ้าย-ขวา */
-        .container {
-            display: flex;
+        /* จัดเลย์เอาต์หน้าจอเป็นแบบตารางกริดย่อย 4 ช่อง */
+        .wrapper {
+            display: grid;
+            grid-template-rows: 1fr 1fr; /* แบ่งบน-ล่าง */
             width: 100vw;
             height: 100vh;
         }
         
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* แบ่งซ้าย-ขวา */
+        }
+        
         /* สไตล์ของแต่ละกรอบ */
         .chart-box {
-            flex: 1;
             position: relative;
-            border: 2px solid #e0e0e0;
-            background-color: #fafafa;
-            overflow: hidden;
+            border: 1px solid #ccc;
+            background-color: #ffffff;
+            overflow: auto;
         }
         
-        .chart-box:first-child { border-right: 1px solid #ccc; }
+        /* ส่วนกรอบแสดงข้อมูลดิบด้านล่าง */
+        .raw-data-box {
+            background-color: #272822; /* สีพื้นหลังแบบ Code Editor */
+            color: #f8f8f2;
+            padding: 45px 15px 15px 15px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            overflow: auto;
+        }
         
-        /* ป้ายหัวข้อกำกับแต่ละฝั่ง */
+        /* ป้ายหัวข้อกำกับแต่ละกรอบ */
         .chart-title {
             position: absolute;
-            top: 15px;
-            left: 20px;
+            top: 10px;
+            left: 15px;
             margin: 0;
-            padding: 8px 16px;
+            padding: 4px 12px;
             background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            font-size: 15px;
+            border-radius: 15px;
+            font-size: 13px;
             font-weight: bold;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             z-index: 10;
         }
-
-        .chart-area { width: 100%; height: 100%; }
-        .loading-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 16px; color: #666; text-align: center; padding: 20px; }
         
-        /* สไตล์สีกล่อง เพศชาย (M) / เพศหญิง (F) */
-        .fchart-node-box { rx: 6px; ry: 6px; }
-        .fchart-gender-F .fchart-node-box { fill: #ffe3e3; stroke: #ffb6b6; }
-        .fchart-gender-M .fchart-node-box { fill: #e3f2fd; stroke: #90caf9; }
+        .raw-title {
+            background: rgba(40, 40, 40, 0.85);
+            color: #fff;
+        }
+
+        .loading-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; color: #777; text-align: center; }
+        svg { width: 100%; height: 100%; min-width: 500px; min-height: 350px; }
+        
+        /* สไตล์ความสวยงามของผัง */
+        .node-rect { rx: 6px; ry: 6px; stroke-width: 1.5px; }
+        .gender-F { fill: #ffe3e3; stroke: #ffb6b6; }
+        .gender-M { fill: #e3f2fd; stroke: #90caf9; }
+        .node-text { font-size: 12px; font-weight: bold; fill: #333; text-anchor: middle; }
+        .family-line { fill: none; stroke: #888; stroke-width: 2px; }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <!-- กรอบที่ 1: ดึงจาก Google Sheets -->
-        <div class="chart-box">
-            <h2 class="chart-title" style="color: #0f9d58;">📊 กรอบที่ 1: ข้อมูลจาก Google Sheets</h2>
-            <div id="loading-sheet" class="loading-text">กำลังดึงข้อมูลจาก Google Sheets...</div>
-            <div id="ChartFromSheet" class="chart-area"></div>
+    <div class="wrapper">
+        <!-- แถวที่ 1: แสดงผังครอบครัว (บนซ้าย / บนขวา) -->
+        <div class="row">
+            <!-- บนซ้าย: ผัง Google Sheets -->
+            <div class="chart-box">
+                <h2 class="chart-title" style="color: #0f9d58;">📊 [บนซ้าย] ผังจาก Google Sheets</h2>
+                <div id="loading-sheet" class="loading-text">กำลังโหลดข้อมูลชีต...</div>
+                <div id="AreaSheet"></div>
+            </div>
+            <!-- บนขวา: ผัง GitHub -->
+            <div class="chart-box">
+                <h2 class="chart-title" style="color: #24292e;">🐙 [บนขวา] ผังจาก GitHub (data.csv)</h2>
+                <div id="loading-github" class="loading-text">กำลังโหลดข้อมูล GitHub...</div>
+                <div id="AreaGithub"></div>
+            </div>
         </div>
 
-        <!-- กรอบที่ 2: ดึงจาก GitHub CSV -->
-        <div class="chart-box">
-            <h2 class="chart-title" style="color: #24292e;">🐙 กรอบที่ 2: ข้อมูลจาก GitHub (data.csv)</h2>
-            <div id="loading-github" class="loading-text">กำลังดึงข้อมูลจาก GitHub...</div>
-            <div id="ChartFromGithub" class="chart-area"></div>
+        <!-- แถวที่ 2: แสดงข้อมูลดิบที่ดึงออกมาได้ (ล่างซ้าย / ล่างขวา) -->
+        <div class="row">
+            <!-- ล่างซ้าย: ข้อมูลดิบ Google Sheets -->
+            <div class="chart-box raw-data-box" id="RawSheet">
+                <h2 class="chart-title raw-title" style="color: #66bb6a;">📄 [ล่างซ้าย] ข้อมูลดิบจาก Google Sheets</h2>
+                <div style="color: #a6e22e;">[ระบบกำลังรอสัญญาณเรียกข้อมูล...]</div>
+            </div>
+            <!-- ล่างขวา: ข้อมูลดิบ GitHub -->
+            <div class="chart-box raw-data-box" id="RawGithub">
+                <h2 class="chart-title raw-title" style="color: #888;">📄 [ล่างขวา] ข้อมูลดิบจาก GitHub</h2>
+                <div style="color: #a6e22e;">[ระบบกำลังรอสัญญาณเรียกข้อมูล...]</div>
+            </div>
         </div>
     </div>
 
-    <script type="module">
-        // ====================================================
-        // ตั้งค่าลิงก์ URL ของคุณที่นี่
-        // ====================================================
-        
-        // 1. ลิงก์ Google Sheets ของคุณ
+    <script>
+        // กำหนดที่อยู่ลิงก์ดึงข้อมูล CSV ของคุณ
         const urlGoogleSheet = "https://google.com";
-        
-        // 2. ลิงก์ไฟล์ data.csv บน GitHub ของคุณ 
-        // ⚠️ สำคัญมาก: ต้องใช้ลิงก์แบบ "Raw" ที่ขึ้นต้นด้วย ://githubusercontent.com เท่านั้นนะครับ
-        // ⚠️ แก้ไขเปลี่ยนตัวแปรในโค้ดบรรทัดนี้ ให้ชี้มาที่โปรเจกต์ boonyai ตัวจริง
-const urlGitHubTree  = "https://githubusercontent.com";
+        const urlGitHubTree  = "https://githubusercontent.com";
 
-        // ฟังก์ชันแปลงโครงสร้างข้อมูล CSV ให้เข้ากับระบบผังครอบครัว
-        function parseCsvToTreeData(rawData) {
-            return rawData.map(row => {
-                let node = {
-                    id: row.id.trim(),
-                    data: {
-                        name: row.name.trim(),
-                        gender: row.gender.trim().toUpperCase()
-                    },
-                    rels: {}
+        // ฟังก์ชันคำนวณตำแหน่งและวาดผังด้วย D3
+        function drawTreeDiagram(targetSelector, rawData) {
+            const width = 600, height = 400;
+            const svg = d3.select(targetSelector).append("svg")
+                          .attr("viewBox", `0 0 ${width} ${height}`);
+
+            let nodes = {};
+            rawData.forEach(d => {
+                if(!d.id) return; // ป้องกันแถวว่าง
+                nodes[d.id.trim()] = {
+                    id: d.id.trim(),
+                    name: d.name ? d.name.trim() : "ไม่มีชื่อ",
+                    gender: d.gender ? d.gender.trim().toUpperCase() : "M",
+                    spouses: d.spouses ? d.spouses.split(",").map(s => s.trim()) : [],
+                    father: d.father ? d.father.trim() : null,
+                    mother: d.mother ? d.mother.trim() : null,
+                    x: 0, y: 0
                 };
-                if (row.spouses) { node.rels.spouses = row.spouses.split(',').map(s => s.trim()); }
-                if (row.father)  { node.rels.father = row.father.trim(); }
-                if (row.mother)  { node.rels.mother = row.mother.trim(); }
-                return node;
+            });
+
+            let levelCount = {};
+            Object.values(nodes).forEach(node => {
+                let lvl = 2;
+                if (node.id === "สวัสดิ์" || node.id === "เงา") lvl = 1;
+                else if (node.father || node.mother) lvl = 3;
+                if (node.id === "เส" || node.id === "ส้ม" || node.id === "นนท์" || node.id === "น้ำ") lvl = 4;
+                
+                node.level = lvl;
+                if (!levelCount[lvl]) levelCount[lvl] = 0;
+                levelCount[lvl]++;
+
+                node.y = lvl * 90 - 30; // ปรับระยะความสูงให้เหมาะกับ 4 กรอบ
+                node.x = levelCount[lvl] * 110 - 30;
+            });
+
+            Object.values(nodes).forEach(node => {
+                if (node.spouses.length > 0) {
+                    node.spouses.forEach((spId, idx) => {
+                        if (nodes[spId]) {
+                            nodes[spId].x = node.x - ((idx + 1) * 70);
+                            nodes[spId].y = node.y;
+                        }
+                    });
+                }
+            });
+
+            Object.values(nodes).forEach(node => {
+                if (node.spouses.length > 0) {
+                    node.spouses.forEach((spId, idx) => {
+                        if (nodes[spId]) {
+                            let offsetY = idx * 10;
+                            svg.append("path")
+                               .attr("class", "family-line")
+                               .attr("d", `M ${node.x} ${node.y - offsetY} L ${nodes[spId].x} ${nodes[spId].y - offsetY}`);
+                        }
+                    });
+                }
+                if (node.father && node.mother) {
+                    let fNode = nodes[node.father];
+                    let mNode = nodes[node.mother];
+                    if (fNode && mNode) {
+                        let midX = (fNode.x + mNode.x) / 2;
+                        svg.append("path")
+                           .attr("class", "family-line")
+                           .attr("d", `M ${midX} ${fNode.y} L ${midX} ${node.y - 25} L ${node.x} ${node.y - 25} L ${node.x} ${node.y}`);
+                    }
+                }
+            });
+
+            const boxWidth = 60, boxHeight = 28;
+            Object.values(nodes).forEach(node => {
+                let g = svg.append("g");
+                g.append("rect")
+                 .attr("class", `node-rect gender-${node.gender}`)
+                 .attr("x", node.x - boxWidth/2)
+                 .attr("y", node.y - boxHeight/2)
+                 .attr("width", boxWidth)
+                 .attr("height", boxHeight);
+
+                g.append("text")
+                 .attr("class", "node-text")
+                 .attr("x", node.x)
+                 .attr("y", node.y + 4)
+                 .text(node.name);
             });
         }
 
-        // ฟังก์ชันวาดผังครอบครัวลงในกรอบที่กำหนด
-        function renderTree(targetContainerId, formattedData) {
-            const store = f3.createStore({ data: formattedData, node_menus: false }),
-                  view = f3.d3AnimationView({ store, cont: document.querySelector(targetContainerId) }),
-                  Card = f3.getCardOf({ view, store });
-            view.setCard(Card);
-            store.updateView(store.getData());
-        }
-
         // ----------------------------------------------------
-        // ทำงานกรอบที่ 1: ดึงและวาดจาก Google Sheets (แยกอิสระ)
+        // ส่วนรันกรอบซ้าย: Google Sheets
         // ----------------------------------------------------
-        d3.csv(urlGoogleSheet).then(function(rawData) {
+        d3.csv(urlGoogleSheet).then(data => {
             document.getElementById("loading-sheet").style.display = "none";
-            const processedData = parseCsvToTreeData(rawData);
-            renderTree("#ChartFromSheet", processedData);
+            
+            // 1. วาดผังกรอบบนซ้าย
+            drawTreeDiagram("#AreaSheet", data);
+            
+            // 2. ปริ้นต์ข้อมูลดิบลงกรอบล่างซ้าย (แสดงผลเป็น JSON สวยงาม)
+            document.getElementById("RawSheet").innerHTML = 
+                `<h2 class="chart-title raw-title" style="color: #66bb6a;">📄 [ล่างซ้าย] ข้อมูลดิบจาก Google Sheets</h2>` +
+                `<span style="color:#66d9ef;">// ดึงข้อมูลสำเร็จ! จำนวนทั้งหมด ${data.length} แถว</span>\n` +
+                JSON.stringify(data, null, 2);
         }).catch(err => {
-            document.getElementById("loading-sheet").innerHTML = `<span style="color:red;">โหลดข้อมูลล้มเหลว:</span><br>${err.message}`;
+            document.getElementById("loading-sheet").innerHTML = `<b style="color:red;">❌ โหลดไม่สำเร็จ</b>`;
+            document.getElementById("RawSheet").innerHTML = `<h2 class="chart-title raw-title" style="color:red;">❌ เกิดข้อผิดพลาด</h2>${err.message}`;
         });
 
         // ----------------------------------------------------
-        // ทำงานกรอบที่ 2: ดึงและวาดจาก GitHub (แยกอิสระ 100%)
+        // ส่วนรันกรอบขวา: GitHub (data.csv)
         // ----------------------------------------------------
-        d3.csv(urlGitHubTree).then(function(rawData) {
+        d3.csv(urlGitHubTree).then(data => {
             document.getElementById("loading-github").style.display = "none";
-            const processedData = parseCsvToTreeData(rawData);
-            renderTree("#ChartFromGithub", processedData);
-        }).catch(err => {
-            // หากระบบหาไฟล์ไม่เจอหรือลิงก์ผิด จะฟ้อง Error ทันที ไม่ดึงข้อมูลอื่นมาทับแล้วครับ
-            document.getElementById("loading-github").innerHTML = 
-                `<span style="color:red; font-weight:bold;">❌ ไม่สามารถโหลดไฟล์จาก GitHub ได้</span><br>` +
-                `<small style="color:#888;">สาเหตุ: ${err.message}</small><br><br>` +
-                `<div style="font-size:13px; text-align:left; background:#fff; padding:10px; border-radius:5px; border:1px solid #ddd;">` +
-                `<b>💡 วิธีแก้ไข:</b><br>` +
-                `1. ตรวจสอบว่ามีไฟล์ชื่อ <b>data.csv</b> อยู่ใน GitHub ของคุณแล้วหรือยัง<br>` +
-                `2. ตรวจสอบว่าตั้งชื่อคอลัมน์แถวแรกสะกดถูกต้องหรือไม่ (id, name, gender...)` +
-                `</div>`;
-        });
-    </script>
-</body>
-</html>
+            
+            // 1. วาดผังกรอบบนขวา
+            drawTreeDiagram("#AreaGithub", data);
+            
+            // 2. ปริ้นต์ข้อมูลดิบลงกรอบล่างขวา
+            document.getElementById("RawGithub").innerHTML = 
+                `<h2 class="chart-title raw-title" style="color: #888;">📄 [ล่างขวา] ข้อมูลดิบจาก GitHub</h2>` +
 
