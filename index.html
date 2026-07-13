@@ -1,152 +1,128 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>แผนผังครอบครัวสำเร็จรูป</title>
-  <!-- ใช้ D3.js เวอร์ชันเสถียรสำหรับวาดองค์ประกอบกราฟ -->
-  <script src="https://d3js.org"></script>
-  <style>
-    body { font-family: 'Tahoma', 'Arial', sans-serif; background-color: #f8f9fa; margin: 0; padding: 20px; text-align: center; }
-    h2 { color: #2d3748; margin-bottom: 30px; }
-    #canvas { width: 100%; overflow-x: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-    .node-box { stroke-width: 1.5px; rx: 6px; ry: 6px; }
-    .male { fill: #d1ecf1; stroke: #bee5eb; }
-    .female { fill: #f8d7da; stroke: #f5c6cb; }
-    .node-text { font-size: 12px; font-weight: bold; fill: #2d3748; text-anchor: middle; }
-    .family-link { fill: none; stroke: #a0aec0; stroke-width: 2px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แสดงข้อมูลจาก Google Sheets</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f9f9f9;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .table-container {
+            overflow-x: auto;
+            margin-top: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #fff;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+            font-weight: bold;
+        }
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        #loading {
+            text-align: center;
+            font-size: 18px;
+            color: #666;
+            margin-top: 20px;
+        }
+    </style>
 </head>
 <body>
 
-  <h2>แผนผังครอบครัวจากฐานข้อมูล</h2>
-  <div id="canvas"></div>
+    <h1>📊 ข้อมูลจาก Google Sheets</h1>
+    
+    <div id="loading">กำลังโหลดข้อมูล...</div>
+    
+    <div class="table-container">
+        <table id="data-table" style="display: none;">
+            <thead id="table-head"></thead>
+            <tbody id="table-body"></tbody>
+        </table>
+    </div>
 
-  <script>
-    // 1. ฐานข้อมูลดิบของคุณ (ทำความสะอาดค่า String/ID เพื่อป้องกัน Error)
-    const dbData = [
-      {id:1, name:"เภา", father:"", mother:"", spouse:"2", gender:"ช"},
-      {id:2, name:"สวัสดิ์", father:"", mother:"", spouse:"1", gender:"ญ"},
-      {id:3, name:"คำเบ้า", father:"1", mother:"2", spouse:"4", gender:"ญ"},
-      {id:4, name:"เดช", father:"", mother:"", spouse:"3", gender:"ช"},
-      {id:5, name:"เชย", father:"1", mother:"2", spouse:"6", gender:"ช"},
-      {id:6, name:"นวล", father:"", mother:"", spouse:"5", gender:"ญ"},
-      {id:7, name:"เหมย", father:"1", mother:"2", spouse:"8", gender:"ช"},
-      {id:8, name:"โอ๊ะ", father:"", mother:"", spouse:"7", gender:"ญ"},
-      {id:9, name:"เกย", father:"1", mother:"2", spouse:"10", gender:"ญ"},
-      {id:10, name:"บุญช้อน", father:"", mother:"", spouse:"9", gender:"ช"},
-      {id:11, name:"แอ้", father:"1", mother:"2", spouse:"", gender:"ช"},
-      {id:12, name:"แม้ว", father:"4", mother:"3", spouse:"20|25|26", gender:"ช"},
-      {id:13, name:"ขวัญ", father:"4", mother:"3", spouse:"21", gender:"ญ"},
-      {id:14, name:"ตี๋", father:"5", mother:"6", spouse:"32|33|34", gender:"ช"},
-      {id:15, name:"ตู่", father:"5", mother:"6", spouse:"22", gender:"ช"},
-      {id:16, name:"ปุ๋ย", father:"7", mother:"8", spouse:"23", gender:"ญ"},
-      {id:17, name:"ป๊อบ", father:"7", mother:"8", spouse:"24", gender:"ญ"},
-      {id:18, name:"ทัด", father:"10", mother:"9", spouse:"", gender:"ช"},
-      {id:19, name:"แวน", father:"10", mother:"9", spouse:"", gender:"ช"},
-      {id:20, name:"น้อล", father:"", mother:"", spouse:"12", gender:"ญ"},
-      {id:21, name:"ตอง", father:"", mother:"", spouse:"13", gender:"ช"},
-      {id:22, name:"นุ้ย", father:"", mother:"", spouse:"15", gender:"ญ"},
-      {id:23, name:"แซม", father:"", mother:"", spouse:"16", gender:"ช"},
-      {id:24, name:"สมชาย", father:"", mother:"", spouse:"17", gender:"ช"},
-      {id:25, name:"ดาว", father:"", mother:"", spouse:"12", gender:"ญ"},
-      {id:26, name:"เบนซ์", father:"", mother:"", spouse:"12", gender:"ญ"}, // แก้ไขข้อมูลโมเดลเพศหญิงตามภาพ
-      {id:27, name:"เอ", father:"12", mother:"20", spouse:"", gender:"ญ"},
-      {id:28, name:"อิ๋ง", father:"12", mother:"20", spouse:"", gender:"ญ"},
-      {id:29, name:"โตนนท์", father:"21", mother:"13", spouse:"", gender:"ช"},
-      {id:30, name:"โมน่า", father:"21", mother:"13", spouse:"", gender:"ญ"},
-      {id:31, name:"อะตอม", father:"15", mother:"22", spouse:"", gender:"ญ"},
-      {id:32, name:"โค้ง", father:"", mother:"", spouse:"14", gender:"ช"},
-      {id:33, name:"ต้อง", father:"", mother:"", spouse:"14", gender:"ช"},
-      {id:34, name:"ตั้ม", father:"", mother:"", spouse:"14", gender:"ช"},
-      {id:35, name:"บี", father:"12", mother:"25", spouse:"", gender:"ญ"},
-      {id:36, name:"ซี", father:"12", mother:"26", spouse:"", gender:"ช"},
-      {id:37, name:"แป้ง", father:"23", mother:"16", spouse:"", gender:"ญ"},
-      {id:38, name:"ป๋อง", father:"23", mother:"16", stroke:"", gender:"ช"},
-      {id:39, name:"ภูผา", father:"24", mother:"17", spouse:"", gender:"ช"},
-      {id:40, name:"ภูเขา", father:"24", mother:"17", spouse:"", gender:"ญ"}
-    ];
+    <script>
+        // ลิงก์ Google Sheets CSV ของคุณ
+        const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQssm9nAkj3WvQOXzfNyYwoaRo1q1OotMaKOV5Ij8HvEsSkIb9WmJMDskcADXcrtOtL9DOdqQLuJa1r/pub?output=csv';
 
-    // 2. ฟังก์ชันจัดแปลงโครงสร้างความสัมพันธ์ให้อยู่ในรูป Flat Hierarchy ป้องกันวงจรลูปเบรก
-    function buildTreeData(data) {
-      const dataMap = new Map(data.map(d => [d.id, { ...d, children: [] }]));
-      const treeRoots = [];
-
-      dataMap.forEach(node => {
-        // ใช้หลักการเลือกเชื่อมโยงผ่านรหัส "แม่" เป็นแกนหลัก เพื่อให้ระนาบของรุ่นลูกแตกกิ่งขนานกันได้
-        const parentId = node.mother ? parseInt(node.mother) : (node.father ? parseInt(node.father) : null);
-        
-        if (parentId && dataMap.has(parentId)) {
-          dataMap.get(parentId).children.push(node);
-        } else {
-          // หากไม่มีจุดเชื่อมต่อระดับบน ให้เซ็ตเป็นต้นตระกูลหลัก (เช่น เภา และ สวัสดิ์)
-          if (!node.father && !node.mother) {
-            if (node.id === 1 || node.id === 2) {
-              treeRoots.push(node);
-            }
-          }
+        // ฟังก์ชันแปลง CSV Text เป็น Array
+        function parseCSV(text) {
+            const lines = text.split('\n');
+            return lines.map(line => {
+                // รองรับกรณีที่ข้อมูลมีเครื่องหมายคอมมาด้านในเซล์
+                const matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
+                return matches.map(cell => cell.replace(/^"|"$/g, '').trim());
+            });
         }
-      });
-      // เลือกจุดเริ่มต้นจากแกนครอบครัวฝั่งใดฝั่งหนึ่ง
-      return treeRoots[1] || treeRoots[0];
-    }
 
-    const rootData = buildTreeData(dbData);
+        // ฟังก์ชันดึงข้อมูลและแสดงผล
+        async function fetchData() {
+            try {
+                const response = await fetch(csvUrl);
+                const dataText = await response.text();
+                const rows = parseCSV(dataText);
 
-    // 3. กำหนดขนาดมิติหน้าจอและระยะห่างของกล่องแผนผัง
-    const width = 1600;
-    const height = 900;
-    const boxWidth = 90;
-    const boxHeight = 40;
+                if (rows.length === 0 || rows[0].length === 0) {
+                    document.getElementById('loading').innerText = 'ไม่พบข้อมูลในระบบ';
+                    return;
+                }
 
-    const svg = d3.select("#canvas")
-      .append("svg")
-      .attr("width", width)
-      .attr("height", height)
-      .append("g")
-      .attr("transform", "translate(50, 50)");
+                const tableHead = document.getElementById('table-head');
+                const tableBody = document.getElementById('table-body');
 
-    // ใช้ฟังก์ชันจัดตำแหน่งพิกัดอัตโนมัติของ D3 Tree
-    const treeLayout = d3.tree().size([width - 150, height - 200]);
-    const rootNode = d3.hierarchy(rootData);
-    treeLayout(rootNode);
+                // สร้างหัวตาราง (แถวแรกของ Sheets)
+                const headerRow = document.createElement('tr');
+                rows[0].forEach(headerText => {
+                    const th = document.createElement('th');
+                    th.innerText = headerText;
+                    headerRow.appendChild(th);
+                });
+                tableHead.appendChild(headerRow);
 
-    // 4. ฟังก์ชันคำนวณเส้นทางและโยงเส้นฉาก 90 องศา (Orthogonal Path Function)
-    svg.selectAll(".link")
-      .data(rootNode.links())
-      .enter()
-      .append("path")
-      .attr("class", "family-link")
-      .attr("d", d => {
-        const startX = d.source.x + boxWidth / 2;
-        const startY = d.source.y + boxHeight;
-        const endX = d.target.x + boxWidth / 2;
-        const endY = d.target.y;
-        const midY = startY + (endY - startY) / 2;
-        
-        // วาดพิกัดลากเส้นในแนวตั้ง -> แนวนอนฉาก -> แนวตั้งเข้าหากล่องเป้าหมาย
-        return `M ${startX} ${startY} V ${midY} H ${endX} V ${endY}`;
-      });
+                // สร้างแถวข้อมูลทั้งหมด (แถวที่เหลือ)
+                for (let i = 1; i < rows.length; i++) {
+                    // ข้ามแถวที่ว่างเปล่า
+                    if (rows[i].length === 1 && rows[i][0] === '') continue; 
 
-    // 5. แสดงผลกล่องรายชื่อบุคคลตามพิกัด โดยแยกสีตามเพศ ช/ญ
-    const node = svg.selectAll(".node")
-      .data(rootNode.descendants())
-      .enter()
-      .append("g")
-      .attr("transform", d => `translate(${d.x}, ${d.y})`);
+                    const bodyRow = document.createElement('tr');
+                    rows[i].forEach(cellText => {
+                        const td = document.createElement('td');
+                        td.innerText = cellText;
+                        bodyRow.appendChild(td);
+                    });
+                    tableBody.appendChild(bodyRow);
+                }
 
-    node.append("rect")
-      .attr("width", boxWidth)
-      .attr("height", boxHeight)
-      .attr("class", d => `node-box ${d.data.gender === "ช" ? "male" : "female"}`);
+                // ซ่อนข้อความโหลด และแสดงตารางข้อมูล
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('data-table').style.display = 'table';
 
-    node.append("text")
-      .attr("x", boxWidth / 2)
-      .attr("y", boxHeight / 2 + 5)
-      .attr("class", "node-text")
-      .text(d => d.data.name);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                document.getElementById('loading').innerText = 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
+            }
+        }
 
-  </script>
+        // เรียกใช้งานฟังก์ชันเมื่อเปิดหน้าเว็บ
+        fetchData();
+    </script>
 </body>
 </html>
-
