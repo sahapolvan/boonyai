@@ -3,68 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>เปรียบเทียบผังครอบครัวและข้อมูลดิบ (4 กรอบ)</title>
-    <!-- ใช้ d3.js เวอร์ชันมาตรฐานตัวเดียวจบ -->
+    <title>ระบบเช็กพิกัดผังและข้อมูลดิบ 4 กรอบ</title>
+    <!-- เรียกใช้งาน d3.js สคริปต์ตัวหลักมาตรฐาน -->
     <script src="https://unpkg.com"></script>
     <style>
         body { margin: 0; padding: 0; font-family: sans-serif; background-color: #f4f6f9; box-sizing: border-box; }
-        
-        /* จัดเลย์เอาต์หน้าจอเป็นแบบตารางกริดย่อย 4 ช่อง */
-        .wrapper {
-            display: grid;
-            grid-template-rows: 1fr 1fr; /* แบ่งบน-ล่าง */
-            width: 100vw;
-            height: 100vh;
-        }
-        
-        .row {
-            display: grid;
-            grid-template-columns: 1fr 1fr; /* แบ่งซ้าย-ขวา */
-        }
-        
-        /* สไตล์ของแต่ละกรอบ */
-        .chart-box {
-            position: relative;
-            border: 1px solid #ccc;
-            background-color: #ffffff;
-            overflow: auto;
-        }
-        
-        /* ส่วนกรอบแสดงข้อมูลดิบด้านล่าง */
-        .raw-data-box {
-            background-color: #272822; /* สีพื้นหลังแบบ Code Editor */
-            color: #f8f8f2;
-            padding: 45px 15px 15px 15px;
-            font-family: monospace;
-            font-size: 12px;
-            white-space: pre-wrap;
-            overflow: auto;
-        }
-        
-        /* ป้ายหัวข้อกำกับแต่ละกรอบ */
-        .chart-title {
-            position: absolute;
-            top: 10px;
-            left: 15px;
-            margin: 0;
-            padding: 4px 12px;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
-            font-size: 13px;
-            font-weight: bold;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            z-index: 10;
-        }
-        
-        .raw-title {
-            background: rgba(40, 40, 40, 0.85);
-            color: #fff;
-        }
-
-        .loading-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; color: #777; text-align: center; }
+        .wrapper { display: grid; grid-template-rows: 1fr 1fr; width: 100vw; height: 100vh; }
+        .row { display: grid; grid-template-columns: 1fr 1fr; }
+        .chart-box { position: relative; border: 1px solid #ccc; background-color: #ffffff; overflow: auto; }
+        .raw-data-box { background-color: #272822; color: #f8f8f2; padding: 45px 15px 15px 15px; font-family: monospace; font-size: 11px; white-space: pre-wrap; overflow: auto; }
+        .chart-title { position: absolute; top: 10px; left: 15px; margin: 0; padding: 4px 12px; background: rgba(255, 255, 255, 0.95); border-radius: 15px; font-size: 13px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10; }
+        .raw-title { background: rgba(40, 40, 40, 0.85); color: #fff; }
+        .loading-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 13px; color: #777; text-align: center; width: 80%; }
         svg { width: 100%; height: 100%; min-width: 500px; min-height: 350px; }
-        
-        /* สไตล์ความสวยงามของผัง */
         .node-rect { rx: 6px; ry: 6px; stroke-width: 1.5px; }
         .gender-F { fill: #ffe3e3; stroke: #ffb6b6; }
         .gender-M { fill: #e3f2fd; stroke: #90caf9; }
@@ -75,15 +26,13 @@
 <body>
 
     <div class="wrapper">
-        <!-- แถวที่ 1: แสดงผังครอบครัว (บนซ้าย / บนขวา) -->
+        <!-- แถวบน: ผังครอบครัว -->
         <div class="row">
-            <!-- บนซ้าย: ผัง Google Sheets -->
             <div class="chart-box">
                 <h2 class="chart-title" style="color: #0f9d58;">📊 [บนซ้าย] ผังจาก Google Sheets</h2>
                 <div id="loading-sheet" class="loading-text">กำลังโหลดข้อมูลชีต...</div>
                 <div id="AreaSheet"></div>
             </div>
-            <!-- บนขวา: ผัง GitHub -->
             <div class="chart-box">
                 <h2 class="chart-title" style="color: #24292e;">🐙 [บนขวา] ผังจาก GitHub (data.csv)</h2>
                 <div id="loading-github" class="loading-text">กำลังโหลดข้อมูล GitHub...</div>
@@ -91,142 +40,138 @@
             </div>
         </div>
 
-        <!-- แถวที่ 2: แสดงข้อมูลดิบที่ดึงออกมาได้ (ล่างซ้าย / ล่างขวา) -->
+        <!-- แถวล่าง: กล่องแสดงข้อมูลดิบดิบ -->
         <div class="row">
-            <!-- ล่างซ้าย: ข้อมูลดิบ Google Sheets -->
             <div class="chart-box raw-data-box" id="RawSheet">
                 <h2 class="chart-title raw-title" style="color: #66bb6a;">📄 [ล่างซ้าย] ข้อมูลดิบจาก Google Sheets</h2>
-                <div style="color: #a6e22e;">[ระบบกำลังรอสัญญาณเรียกข้อมูล...]</div>
+                <div class="loading-text" style="color: #f8f8f2;">[ระบบกำลังรอการเชื่อมต่อฐานข้อมูล...]</div>
             </div>
-            <!-- ล่างขวา: ข้อมูลดิบ GitHub -->
             <div class="chart-box raw-data-box" id="RawGithub">
                 <h2 class="chart-title raw-title" style="color: #888;">📄 [ล่างขวา] ข้อมูลดิบจาก GitHub</h2>
-                <div style="color: #a6e22e;">[ระบบกำลังรอสัญญาณเรียกข้อมูล...]</div>
+                <div class="loading-text" style="color: #f8f8f2;">[ระบบกำลังรอการเชื่อมต่อฐานข้อมูล...]</div>
             </div>
         </div>
     </div>
 
     <script>
-        // กำหนดที่อยู่ลิงก์ดึงข้อมูล CSV ของคุณ
+        // ระบุที่อยู่ลิงก์ดึงข้อมูล CSV ปลายทาง
         const urlGoogleSheet = "https://google.com";
         const urlGitHubTree  = "https://githubusercontent.com";
 
-        // ฟังก์ชันคำนวณตำแหน่งและวาดผังด้วย D3
+        // ฟังก์ชันวาดผังโครงสร้างความสัมพันธ์
         function drawTreeDiagram(targetSelector, rawData) {
-            const width = 600, height = 400;
-            const svg = d3.select(targetSelector).append("svg")
-                          .attr("viewBox", `0 0 ${width} ${height}`);
+            try {
+                const width = 600, height = 400;
+                const svg = d3.select(targetSelector).append("svg").attr("viewBox", `0 0 ${width} ${height}`);
 
-            let nodes = {};
-            rawData.forEach(d => {
-                if(!d.id) return; // ป้องกันแถวว่าง
-                nodes[d.id.trim()] = {
-                    id: d.id.trim(),
-                    name: d.name ? d.name.trim() : "ไม่มีชื่อ",
-                    gender: d.gender ? d.gender.trim().toUpperCase() : "M",
-                    spouses: d.spouses ? d.spouses.split(",").map(s => s.trim()) : [],
-                    father: d.father ? d.father.trim() : null,
-                    mother: d.mother ? d.mother.trim() : null,
-                    x: 0, y: 0
-                };
-            });
+                let nodes = {};
+                rawData.forEach(d => {
+                    // ตรรกะดักจับแปลงค่าหัวคอลัมน์ ป้องกันเคสตัวพิมพ์เล็ก-ใหญ่ในตารางสะกดไม่ตรงกัน
+                    let idKey = d.id || d.ID || Object.values(d)[0];
+                    if (!idKey) return;
+                    
+                    let id = idKey.trim();
+                    nodes[id] = {
+                        id: id,
+                        name: (d.name || d.NAME || id).trim(),
+                        gender: (d.gender || d.GENDER || "M").trim().toUpperCase(),
+                        spouses: (d.spouses || d.SPOUSES || "").split(",").map(s => s.trim()).filter(s => s),
+                        father: d.father || d.FATHER || null,
+                        mother: d.mother || d.MOTHER || null,
+                        x: 0, y: 0
+                    };
+                });
 
-            let levelCount = {};
-            Object.values(nodes).forEach(node => {
-                let lvl = 2;
-                if (node.id === "สวัสดิ์" || node.id === "เงา") lvl = 1;
-                else if (node.father || node.mother) lvl = 3;
-                if (node.id === "เส" || node.id === "ส้ม" || node.id === "นนท์" || node.id === "น้ำ") lvl = 4;
-                
-                node.level = lvl;
-                if (!levelCount[lvl]) levelCount[lvl] = 0;
-                levelCount[lvl]++;
+                let levelCount = {};
+                Object.values(nodes).forEach(node => {
+                    let lvl = 2;
+                    if (node.id === "สวัสดิ์" || node.id === "เงา") lvl = 1;
+                    else if (node.father || node.mother) lvl = 3;
+                    if (["เส", "ส้ม", "นนท์", "น้ำ"].includes(node.id)) lvl = 4;
+                    
+                    node.level = lvl;
+                    if (!levelCount[lvl]) levelCount[lvl] = 0;
+                    levelCount[lvl]++;
 
-                node.y = lvl * 90 - 30; // ปรับระยะความสูงให้เหมาะกับ 4 กรอบ
-                node.x = levelCount[lvl] * 110 - 30;
-            });
+                    node.y = lvl * 90 - 30;
+                    node.x = levelCount[lvl] * 110 - 30;
+                });
 
-            Object.values(nodes).forEach(node => {
-                if (node.spouses.length > 0) {
-                    node.spouses.forEach((spId, idx) => {
-                        if (nodes[spId]) {
-                            nodes[spId].x = node.x - ((idx + 1) * 70);
-                            nodes[spId].y = node.y;
-                        }
-                    });
-                }
-            });
-
-            Object.values(nodes).forEach(node => {
-                if (node.spouses.length > 0) {
-                    node.spouses.forEach((spId, idx) => {
-                        if (nodes[spId]) {
-                            let offsetY = idx * 10;
-                            svg.append("path")
-                               .attr("class", "family-line")
-                               .attr("d", `M ${node.x} ${node.y - offsetY} L ${nodes[spId].x} ${nodes[spId].y - offsetY}`);
-                        }
-                    });
-                }
-                if (node.father && node.mother) {
-                    let fNode = nodes[node.father];
-                    let mNode = nodes[node.mother];
-                    if (fNode && mNode) {
-                        let midX = (fNode.x + mNode.x) / 2;
-                        svg.append("path")
-                           .attr("class", "family-line")
-                           .attr("d", `M ${midX} ${fNode.y} L ${midX} ${node.y - 25} L ${node.x} ${node.y - 25} L ${node.x} ${node.y}`);
+                Object.values(nodes).forEach(node => {
+                    if (node.spouses.length > 0) {
+                        node.spouses.forEach((spId, idx) => {
+                            if (nodes[spId]) {
+                                nodes[spId].x = node.x - ((idx + 1) * 70);
+                                nodes[spId].y = node.y;
+                            }
+                        });
                     }
-                }
-            });
+                });
 
-            const boxWidth = 60, boxHeight = 28;
-            Object.values(nodes).forEach(node => {
-                let g = svg.append("g");
-                g.append("rect")
-                 .attr("class", `node-rect gender-${node.gender}`)
-                 .attr("x", node.x - boxWidth/2)
-                 .attr("y", node.y - boxHeight/2)
-                 .attr("width", boxWidth)
-                 .attr("height", boxHeight);
+                Object.values(nodes).forEach(node => {
+                    if (node.spouses.length > 0) {
+                        node.spouses.forEach((spId, idx) => {
+                            if (nodes[spId]) {
+                                let offsetY = idx * 10;
+                                svg.append("path").attr("class", "family-line").attr("d", `M ${node.x} ${node.y - offsetY} L ${nodes[spId].x} ${nodes[spId].y - offsetY}`);
+                            }
+                        });
+                    }
+                    if (node.father && node.mother) {
+                        let fNode = nodes[node.father];
+                        let mNode = nodes[node.mother];
+                        if (fNode && mNode) {
+                            let midX = (fNode.x + mNode.x) / 2;
+                            svg.append("path").attr("class", "family-line").attr("d", `M ${midX} ${fNode.y} L ${midX} ${node.y - 25} L ${node.x} ${node.y - 25} L ${node.x} ${node.y}`);
+                        }
+                    }
+                });
 
-                g.append("text")
-                 .attr("class", "node-text")
-                 .attr("x", node.x)
-                 .attr("y", node.y + 4)
-                 .text(node.name);
-            });
+                const boxWidth = 60, boxHeight = 28;
+                Object.values(nodes).forEach(node => {
+                    let g = svg.append("g");
+                    g.append("rect").attr("class", `node-rect gender-${node.gender}`).attr("x", node.x - boxWidth/2).attr("y", node.y - boxHeight/2).attr("width", boxWidth).attr("height", boxHeight);
+                    g.append("text").attr("class", "node-text").attr("x", node.x).attr("y", node.y + 4).text(node.name);
+                });
+            } catch(e) {
+                console.error("ผิดพลาดขณะจัดตำแหน่งผัง:", e);
+            }
         }
 
         // ----------------------------------------------------
-        // ส่วนรันกรอบซ้าย: Google Sheets
+        // ส่วนดึงค่าข้อมูลกรอบซ้าย (Google Sheets)
         // ----------------------------------------------------
         d3.csv(urlGoogleSheet).then(data => {
             document.getElementById("loading-sheet").style.display = "none";
-            
-            // 1. วาดผังกรอบบนซ้าย
             drawTreeDiagram("#AreaSheet", data);
             
-            // 2. ปริ้นต์ข้อมูลดิบลงกรอบล่างซ้าย (แสดงผลเป็น JSON สวยงาม)
+            // พิมพ์ข้อมูลดิบลงกล่องล่างซ้ายทันทีเมื่อได้รับข้อความ
             document.getElementById("RawSheet").innerHTML = 
                 `<h2 class="chart-title raw-title" style="color: #66bb6a;">📄 [ล่างซ้าย] ข้อมูลดิบจาก Google Sheets</h2>` +
-                `<span style="color:#66d9ef;">// ดึงข้อมูลสำเร็จ! จำนวนทั้งหมด ${data.length} แถว</span>\n` +
+                `<span style="color:#66d9ef;">// เชื่อมต่อชีตสำเร็จ! ดึงข้อมูลมาได้ ${data.length} แถว</span>\n\n` +
                 JSON.stringify(data, null, 2);
         }).catch(err => {
-            document.getElementById("loading-sheet").innerHTML = `<b style="color:red;">❌ โหลดไม่สำเร็จ</b>`;
-            document.getElementById("RawSheet").innerHTML = `<h2 class="chart-title raw-title" style="color:red;">❌ เกิดข้อผิดพลาด</h2>${err.message}`;
+            document.getElementById("loading-sheet").innerHTML = `<b style="color:red;">❌ ดึงข้อมูลล้มเหลว</b>`;
+            document.getElementById("RawSheet").innerHTML = 
+                `<h2 class="chart-title raw-title" style="color:red;">❌ เกิดข้อผิดพลาดฝั่ง Google Sheets</h2>` +
+                `<span style="color:#f92672;">สาเหตุ: ไม่สามารถเข้าถึงไฟล์ได้</span>\n\n` +
+                `💡 แนะนำให้ตรวจสอบว่าในหน้า Google Sheets ได้กดปุ่มแชร์เลือก "ทุกคนที่มีลิงก์สิทธิ์อ่าน" และทำการกดเมนู "เผยแพร่ไปยังเว็บเลือกประเภท .csv" เรียบร้อยแล้วหรือยังครับ`;
         });
 
         // ----------------------------------------------------
-        // ส่วนรันกรอบขวา: GitHub (data.csv)
+        // ส่วนดึงค่าข้อมูลกรอบขวา (GitHub data.csv)
         // ----------------------------------------------------
         d3.csv(urlGitHubTree).then(data => {
             document.getElementById("loading-github").style.display = "none";
-            
-            // 1. วาดผังกรอบบนขวา
             drawTreeDiagram("#AreaGithub", data);
             
-            // 2. ปริ้นต์ข้อมูลดิบลงกรอบล่างขวา
+            // พิมพ์ข้อมูลดิบลงกล่องล่างขวา
             document.getElementById("RawGithub").innerHTML = 
                 `<h2 class="chart-title raw-title" style="color: #888;">📄 [ล่างขวา] ข้อมูลดิบจาก GitHub</h2>` +
+                `<span style="color:#66d9ef;">// เชื่อมต่อ GitHub สำเร็จ! ดึงข้อมูลมาได้ ${data.length} แถว</span>\n\n` +
+                JSON.stringify(data, null, 2);
+        }).catch(err => {
+            document.getElementById("loading-github").innerHTML = `<b style="color:red;">❌ ดึงข้อมูลล้มเหลว</b>`;
+            document.getElementById("RawGithub").innerHTML = 
+                `<h2 class="chart-title raw-title" style="color:red;">❌ เกิดข้อผิดพลาดฝั่ง GitHub</h2>` +
 
