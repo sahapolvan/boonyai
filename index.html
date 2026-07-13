@@ -2,127 +2,72 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>แสดงข้อมูลจาก Google Sheets</title>
+    <title>Google Sheets + Family Tree Open Source</title>
+    <!-- เรียกใช้งานชุดคำสั่ง D3 และ Family Chart ฟรี 100% -->
+    <script src="https://unpkg.com"></script>
+    <script src="https://unpkg.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/dist/styles.css">
+    
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 20px;
-            background-color: #f9f9f9;
-        }
-        h1 {
-            color: #333;
-            text-align: center;
-        }
-        .table-container {
-            overflow-x: auto;
-            margin-top: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            border-radius: 8px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background-color: #fff;
-        }
-        th, td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        th {
-            background-color: #4CAF50;
-            color: white;
-            font-weight: bold;
-        }
-        tr:hover {
-            background-color: #f5f5f5;
-        }
-        #loading {
-            text-align: center;
-            font-size: 18px;
-            color: #666;
-            margin-top: 20px;
-        }
+        body { margin: 0; padding: 0; font-family: sans-serif; background-color: #fafafa; }
+        #FamilyChart { width: 100vw; height: 100vh; }
+        .fchart-node-box { rx: 6px; ry: 6px; }
+        .fchart-gender-F .fchart-node-box { fill: #ffe3e3; stroke: #ffb6b6; } /* สีกล่องผู้หญิง */
+        .fchart-gender-M .fchart-node-box { fill: #e3f2fd; stroke: #90caf9; } /* สีกล่องผู้ชาย */
+        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; }
     </style>
 </head>
 <body>
 
-    <h1>📊 ข้อมูลจาก Google Sheets</h1>
-    
-    <div id="loading">กำลังโหลดข้อมูล...</div>
-    
-    <div class="table-container">
-        <table id="data-table" style="display: none;">
-            <thead id="table-head"></thead>
-            <tbody id="table-body"></tbody>
-        </table>
-    </div>
+    <div id="loading">กำลังดึงข้อมูลความสัมพันธ์จาก Google Sheets...</div>
+    <div id="FamilyChart"></div>
 
     <script>
-        // ลิงก์ Google Sheets CSV ของคุณ
-        const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQssm9nAkj3WvQOXzfNyYwoaRo1q1OotMaKOV5Ij8HvEsSkIb9WmJMDskcADXcrtOtL9DOdqQLuJa1r/pub?output=csv';
+        // 1. ระบุลิงก์ CSV จาก Google Sheets ของคุณ
+        const googleSheetCsvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQssm9nAkj3WvQOXzfNyYwoaRo1q1OotMaKOV5Ij8HvEsSkIb9WmJMDskcADXcrtOtL9DOdqQLuJa1r/pub?output=csv";
 
-        // ฟังก์ชันแปลง CSV Text เป็น Array
-        function parseCSV(text) {
-            const lines = text.split('\n');
-            return lines.map(line => {
-                // รองรับกรณีที่ข้อมูลมีเครื่องหมายคอมมาด้านในเซล์
-                const matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
-                return matches.map(cell => cell.replace(/^"|"$/g, '').trim());
+        // 2. ใช้ฟังก์ชัน d3.csv ในการไปดาวน์โหลดและแปลงไฟล์จากลิงก์ของคุณ
+        d3.csv(googleSheetCsvUrl).then(function(rawData) {
+            
+            // ซ่อนข้อความโหลดข้อมูลเมื่อทำสำเร็จ
+            document.getElementById("loading").style.display = "none";
+
+            // 3. วนลูปจัดรูปแบบตาราง (Format Data) ให้เข้าล็อกของโครงสร้าง Family Chart
+            const familyData = rawData.map(row => {
+                let node = {
+                    id: row.id.trim(),
+                    name: row.name.trim(),
+                    gender: row.gender.trim().toUpperCase(),
+                    rels: {}
+                };
+
+                // แปลงข้อมูลคู่สมรสกรณีที่มีหลายคน (สเปซคั่นด้วยจุลภาค)
+                if (row.spouses) {
+                    node.rels.spouses = row.spouses.split(',').map(s => s.trim());
+                }
+                // ใส่รหัสพ่อ
+                if (row.father) {
+                    node.rels.father = row.father.trim();
+                }
+                // ใส่รหัสแม่
+                if (row.mother) {
+                    node.rels.mother = row.mother.trim();
+                }
+
+                return node;
             });
-        }
 
-        // ฟังก์ชันดึงข้อมูลและแสดงผล
-        async function fetchData() {
-            try {
-                const response = await fetch(csvUrl);
-                const dataText = await response.text();
-                const rows = parseCSV(dataText);
+            // 4. สั่งสั่งรันวาดแผนผังลงบนหน้าจอ
+            const fchart = fmlChart()
+                .target("#FamilyChart")
+                .data(familyData)
+                .view("tree")
+                .create();
 
-                if (rows.length === 0 || rows[0].length === 0) {
-                    document.getElementById('loading').innerText = 'ไม่พบข้อมูลในระบบ';
-                    return;
-                }
-
-                const tableHead = document.getElementById('table-head');
-                const tableBody = document.getElementById('table-body');
-
-                // สร้างหัวตาราง (แถวแรกของ Sheets)
-                const headerRow = document.createElement('tr');
-                rows[0].forEach(headerText => {
-                    const th = document.createElement('th');
-                    th.innerText = headerText;
-                    headerRow.appendChild(th);
-                });
-                tableHead.appendChild(headerRow);
-
-                // สร้างแถวข้อมูลทั้งหมด (แถวที่เหลือ)
-                for (let i = 1; i < rows.length; i++) {
-                    // ข้ามแถวที่ว่างเปล่า
-                    if (rows[i].length === 1 && rows[i][0] === '') continue; 
-
-                    const bodyRow = document.createElement('tr');
-                    rows[i].forEach(cellText => {
-                        const td = document.createElement('td');
-                        td.innerText = cellText;
-                        bodyRow.appendChild(td);
-                    });
-                    tableBody.appendChild(bodyRow);
-                }
-
-                // ซ่อนข้อความโหลด และแสดงตารางข้อมูล
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('data-table').style.display = 'table';
-
-            } catch (error) {
-                console.error('Error fetching data:', error);
-                document.getElementById('loading').innerText = 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
-            }
-        }
-
-        // เรียกใช้งานฟังก์ชันเมื่อเปิดหน้าเว็บ
-        fetchData();
+        }).catch(function(error) {
+            document.getElementById("loading").innerText = "เกิดข้อผิดพลาดในการโหลดข้อมูล: " + error.message;
+            console.error(error);
+        });
     </script>
 </body>
 </html>
