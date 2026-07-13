@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Sheets + Family Tree</title>
+    
+    <!-- 1. ดึงสคริปต์หลักและสไตล์ของ Family Chart (เวอร์ชันมอดูลที่ถูกต้อง) -->
+    <script src="https://unpkg.com/d3@7"></script>
+    <script type="module" src="https://unpkg.com/family-chart"></script>
+    <link rel="stylesheet" href="https://unpkg.com">
+    
+    <style>
+        body { margin: 0; padding: 0; font-family: sans-serif; background-color: #fafafa; }
+        #FamilyChart { width: 100vw; height: 100vh; }
+        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 18px; color: #555; }
+        
+        /* สไตล์กำหนดสีสันกล่องในระบบ Family Chart */
+        .fchart-node-box { rx: 6px; ry: 6px; }
+        .fchart-gender-F .fchart-node-box { fill: #ffe3e3; stroke: #ffb6b6; }
+        .fchart-gender-M .fchart-node-box { fill: #e3f2fd; stroke: #90caf9; }
+    </style>
+</head>
+<body>
+
+    <div id="loading">กำลังดึงข้อมูลความสัมพันธ์จาก Google Sheets...</div>
+    <!-- กล่องหลักสำหรับเรนเดอร์ภาพผัง -->
+    <div id="FamilyChart"></div>
+
+    <!-- 2. ต้องประกาศประเภทสคริปต์เป็น type="module" เสมอ -->
+    <script type="module">
+        // ระบุลิงก์นำเข้าข้อมูล CSV จาก Google Sheets ของคุณ
+        const googleSheetCsvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQssm9nAkj3WvQOXzfNyYwoaRo1q1OotMaKOV5Ij8HvEsSkIb9WmJMDskcADXcrtOtL9DOdqQLuJa1r/pub?output=csv";
+
+        // ใช้ d3 ดึงค่าพิกัดความสัมพันธ์
+        d3.csv(googleSheetCsvUrl).then(function(rawData) {
+            // ซ่อนข้อความ Loading เมื่ออ่านข้อมูลสำเร็จ
+            document.getElementById("loading").style.display = "none";
+
+            // 3. จัดการแปลงแถวข้อมูลในตารางให้เข้าล็อกโครงสร้าง JSON 
+            const familyData = rawData.map(row => {
+                let node = {
+                    id: row.id.trim(),
+                    data: {
+                        name: row.name.trim(),
+                        gender: row.gender.trim().toUpperCase()
+                    },
+                    rels: {}
+                };
+
+                // ตรรกะตัดคำคั่นจุลภาคกรณีแต่งงานหลายหน
+                if (row.spouses) {
+                    node.rels.spouses = row.spouses.split(',').map(s => s.trim());
+                }
+                if (row.father) {
+                    node.rels.father = row.father.trim();
+                }
+                if (row.mother) {
+                    node.rels.mother = row.mother.trim();
+                }
+
+                return node;
+            });
+
+            // 4. สั่งสั่งรันวาดแผนผังโดยใช้โมเดลฟังก์ชัน f3 (สไตล์โอเพนซอร์สของ Family Chart)
+            const store = f3.createStore({
+                    data: familyData,
+                    node_menus: false
+                }),
+                view = f3.d3AnimationView({
+                    store,
+                    cont: document.querySelector('#FamilyChart')
+                }),
+                Card = f3.getCardOf({
+                    view,
+                    store
+                });
+
+            view.setCard(Card);
+            store.updateView(store.getData([0])); // สั่งอัปเดตและเริ่มแสดงผลผังที่หน้าจอ
+
+        }).catch(function(error) {
+            document.getElementById("loading").innerText = "เกิดข้อผิดพลาดในการโหลดข้อมูล: " + error.message;
+            console.error("ตรรกะผิดพลาด:", error);
+        });
+    </script>
+</body>
+</html>
+
