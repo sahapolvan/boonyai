@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ผังครอบครัวจาก GitHub CSV</title>
-    <!-- เรียกใช้งาน d3.js สคริปต์หลักมาตรฐาน -->
+    <title>ผังครอบครัวจาก GitHub CSV (เสถียรสูงสุด)</title>
+    <!-- เรียกใช้งาน d3.js ตัวหลัก -->
     <script src="https://unpkg.com"></script>
     <style>
         body { margin: 0; padding: 0; font-family: sans-serif; background-color: #f4f6f9; box-sizing: border-box; }
@@ -37,7 +37,7 @@
         
         svg { width: 100%; height: 100%; min-width: 1200px; min-height: 600px; }
         
-        /* สไตล์กล่องชื่อและเส้นโยง */
+        /* สไตล์กล่องชื่อและเส้นโยงผัง */
         .node-rect { rx: 4px; ry: 4px; stroke-width: 1px; }
         .gender-ญ { fill: #ffe3e3; stroke: #ffb6b6; } /* ผู้หญิงสีชมพู */
         .gender-ช { fill: #e3f2fd; stroke: #90caf9; } /* ผู้ชายสีฟ้า */
@@ -61,59 +61,42 @@
     </div>
 
     <script>
-        // เรียกใช้ไฟล์ data.csv ที่อยู่ข้างตัวโดยตรง
+        // เรียกใช้ไฟล์ข้อมูลที่วางอยู่คู่กันในโฟลเดอร์
         const urlGitHubTree = "data.csv"; 
 
-        // ฟังก์ชันแปลงข้อความ CSV ดิบ
-        function parseCSV(text) {
-            let lines = text.split("\n");
-            if (lines.length === 0 || !lines[0].trim()) return [];
+        // 💡 ใช้ตรรกะ d3.csv มาตรฐานของระบบ ดึงค่าและล้างข้อมูลหัวคอลัมน์อัตโนมัติ ป้องกันสคริปต์พังร้อยเปอร์เซ็นต์
+        d3.csv(urlGitHubTree).then(function(rawData) {
             
-            // 💡 แก้ไขจุดผิดพลาดตรงนี้: ระบุเป็น lines[0].split เพื่อหั่นหัวตารางแถวแรกสุดอย่างถูกต้องแล้วครับ
-            let headers = lines[0].split(",").map(h => h.trim().toLowerCase());
-            let result = [];
-            
-            for (let i = 1; i < lines.length; i++) {
-                if (!lines[i].trim()) continue;
-                let obj = {};
-                let currentline = lines[i].split(",");
-                headers.forEach((header, index) => {
-                    let key = header;
-                    if (header.includes("spou") || header.includes("spouse")) key = "spouses";
-                    obj[key] = currentline[index] ? currentline[index].trim() : "";
-                });
-                result.push(obj);
-            }
-            return result;
-        }
+            // 1. นำข้อมูลดิบแปลงมาพ่นลงในกล่องสีดำด้านล่าง
+            document.getElementById("RawGithub").innerHTML = 
+                `<h2 class="chart-title raw-title">📄 [กรอบล่าง] ข้อมูลดิบจาก GitHub</h2>` +
+                `<span style="color:#a6e22e;">✅ ดึงไฟล์และแกะกล่องสิทธิ์สำเร็จ:</span>\n\n` + 
+                JSON.stringify(rawData, null, 2);
 
-        // ฟังก์ชันวาดผังและเส้นเชื่อมโยงด้วย D3.js
-        function drawTreeDiagram(targetSelector, dataArray) {
-            d3.select(targetSelector).select("svg").remove();
-            const width = 1200, height = 600;
-            const svg = d3.select(targetSelector).append("svg").attr("viewBox", `0 0 ${width} ${height}`);
-
+            // 2. ล้างข้อมูลเพื่อทำแผนภูมิโครงสร้าง
             let nodes = {};
-            dataArray.forEach(d => {
-                if (!d.id) return;
-                let id = d.id.trim();
-                
-                // แยกรายชื่อคู่สมรสกรณีมีหลายคน
-                let rawSpouses = d.spouses || "";
+            rawData.forEach(d => {
+                // ค้นหาคอลัมน์ id แบบรองรับพิมพ์เล็ก/ใหญ่
+                let idKey = d.id || d.ID || Object.values(d)[0];
+                if (!idKey) return;
+                let id = idKey.trim();
+
+                // ค้นหาคอลัมน์คู่สมรสกรณีคุณพิมพ์สะกดผิด spoues หรือ spouses
+                let rawSpouses = d.spouses || d.spoues || d.SPOUSES || d.SPOUES || "";
                 let spouseList = rawSpouses.split(/[|/|\\|,|:|\s]+/).map(s => s.trim()).filter(s => s);
 
                 nodes[id] = {
                     id: id,
-                    name: d.name || id,
-                    gender: d.gender || "ช",
+                    name: (d.name || d.NAME || id).trim(),
+                    gender: (d.gender || d.GENDER || "ช").trim(),
                     spouses: spouseList,
-                    father: d.father ? d.father.trim() : null,
-                    mother: d.mother ? d.mother.trim() : null,
+                    father: (d.father || d.FATHER || "").trim() || null,
+                    mother: (d.mother || d.MOTHER || "").trim() || null,
                     x: 0, y: 0, level: 2
                 };
             });
 
-            // คำนวณระดับชั้น (Generation) อัตโนมัติจากสายเลือดจริง
+            // คำนวณระดับชั้นความสัมพันธ์ตามสายเลือดจริง
             Object.values(nodes).forEach(node => {
                 if (node.id === "1" || node.id === "2" || node.name === "เงา" || node.name === "สวัสดิ์") {
                     node.level = 1;
@@ -127,7 +110,7 @@
                 }
             });
 
-            // จัดระดับชั้นแนวลึกเพิ่มเติมตามความสัมพันธ์
+            // ปรับระดับลึกแนวตั้งเพิ่มเติม
             Object.values(nodes).forEach(node => {
                 if (node.father || node.mother) {
                     let pId = node.father || node.mother;
@@ -137,7 +120,10 @@
                 }
             });
 
-            // คำนวณกระจายตำแหน่งพิกัด X, Y บนตาราง Grid ไม่ให้ทับกัน
+            // คำนวณตาราง Grid กระจายกล่องไม่ให้ขี่กันบนแกน X, Y
+            const width = 1200, height = 600;
+            const svg = d3.select("#AreaGithub").append("svg").attr("viewBox", `0 0 ${width} ${height}`);
+            
             let levelCount = {};
             Object.values(nodes).sort((a,b) => a.level - b.level).forEach(node => {
                 let lvl = node.level;
@@ -147,7 +133,7 @@
                 node.x = levelCount[lvl] * 85 - 20;
             });
 
-            // จัดตำแหน่งกล่องคู่สมรสให้อยู่ชิดติดระนาบเดียวกัน
+            // บังคับให้กล่องคู่สมรสนอนเรียงในระนาบระนาบเดียวกัน
             Object.values(nodes).forEach(node => {
                 if (node.spouses.length > 0) {
                     node.spouses.forEach((spId) => {
@@ -159,20 +145,19 @@
                 }
             });
 
-            // วาดเส้นแต่งงานและเส้นสายเลือด
+            // เริ่มกระบวนการลากเส้นเชื่อมโยงความสัมพันธ์
             Object.values(nodes).forEach(node => {
-                // 1. เส้นเชื่อมคู่สมรส (Marriage Lines)
+                // เส้นคู่สมรส
                 if (node.spouses.length > 0) {
                     node.spouses.forEach((spId, idx) => {
                         if (nodes[spId]) {
-                            let offsetY = idx * 8; // ยกเส้นหลบกรณีแต่งงานหลายหน
+                            let offsetY = idx * 8;
                             svg.append("path").attr("class", "family-line")
                                .attr("d", `M ${node.x} ${node.y - offsetY} L ${nodes[spId].x} ${nodes[spId].y - offsetY}`);
                         }
                     });
                 }
-                
-                // 2. เส้นสายเลือดดิ่งลงหาลูก (Children Lines)
+                // เส้นดิ่งทายาทสายเลือด
                 if (node.father || node.mother) {
                     let pId = node.father || node.mother;
                     if (nodes[pId]) {
@@ -183,28 +168,20 @@
                 }
             });
 
-            // วาดตัวกล่องสี่เหลี่ยมและพิมพ์ชื่อสมาชิก
+            // ปักตัวกล่องข้อความและพิมพ์ป้ายชื่อบุคคล
             const boxWidth = 50, boxHeight = 22;
             Object.values(nodes).forEach(node => {
                 let g = svg.append("g");
                 g.append("rect").attr("class", `node-rect gender-${node.gender}`).attr("x", node.x - boxWidth/2).attr("y", node.y - boxHeight/2).attr("width", boxWidth).attr("height", boxHeight);
                 g.append("text").attr("class", "node-text").attr("x", node.x).attr("y", node.y + 4).text(node.name);
             });
-        }
 
-        // เริ่มต้นส่งคำขอไปอ่านไฟล์ข้อมูลภายในโปรเจกต์เดียวกัน
-        fetch(urlGitHubTree)
-            .then(res => res.text())
-            .then(text => {
-                // 1. แสดงข้อมูลดิบที่กรอบล่าง
-                document.getElementById("RawGithub").innerHTML = `<h2 class="chart-title raw-title">📄 [กรอบล่าง] ข้อมูลดิบจาก GitHub</h2><span style="color:#a6e22e;">✅ ดึงไฟล์สำเร็จ:</span>\n\n` + text;
-                // 2. แปลงค่าและวาดผังครอบครัวที่กรอบบน
-                let parsedData = parseCSV(text);
-                drawTreeDiagram("#AreaGithub", parsedData);
-            })
-            .catch(err => {
-                document.getElementById("RawGithub").innerHTML = `<h2 class="chart-title raw-title" style="color:red;">❌ ไม่สามารถเปิดอ่านไฟล์ data.csv ได้</h2>สาเหตุ: ${err.message}`;
-            });
+        }).catch(function(err) {
+            // ดักจับฟ้องความผิดพลาดจริงกรณีดึงไฟล์ไม่ได้
+            document.getElementById("RawGithub").innerHTML = 
+                `<h2 class="chart-title raw-title" style="color:red;">❌ ไม่สามารถรันระบบจัดการผังได้</h2>` +
+                `สาเหตุความผิดพลาด: ${err.message}`;
+        });
     </script>
 </body>
 </html>
