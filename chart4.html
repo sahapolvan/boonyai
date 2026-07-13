@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ผังครอบครัวจาก GitHub CSV</title>
-    <!-- เรียกใช้งาน d3.js -->
+    <!-- เรียกใช้งาน d3.js สคริปต์หลักมาตรฐาน -->
     <script src="https://unpkg.com"></script>
     <style>
         body { margin: 0; padding: 0; font-family: sans-serif; background-color: #f4f6f9; box-sizing: border-box; }
@@ -69,7 +69,7 @@
             let lines = text.split("\n");
             if (lines.length === 0 || !lines[0].trim()) return [];
             
-            // 💡 แก้ไขจุดผิดพลาดตรงนี้: เปลี่ยนจาก lines.split เป็น lines[0].split ที่ถูกต้องแล้วครับ
+            // 💡 แก้ไขจุดผิดพลาดตรงนี้: ระบุเป็น lines[0].split เพื่อหั่นหัวตารางแถวแรกสุดอย่างถูกต้องแล้วครับ
             let headers = lines[0].split(",").map(h => h.trim().toLowerCase());
             let result = [];
             
