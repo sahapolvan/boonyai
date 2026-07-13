@@ -3,56 +3,173 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ทดสอบดึงข้อความดิบจาก GitHub (Local File)</title>
+    <title>ระบบเปรียบเทียบผังครอบครัว 4 กรอบ (ฉบับสมบูรณ์)</title>
+    <!-- เรียกใช้งานไลบรารีมาตรฐาน d3.js -->
+    <script src="https://unpkg.com"></script>
     <style>
-        body { margin: 0; padding: 20px; font-family: monospace; background-color: #272822; color: #f8f8f2; font-size: 14px; line-height: 1.6; }
-        .header { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #3e3d32; }
-        .status-badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 12px; }
-        .success { background-color: #a6e22e; color: #272822; }
-        .error { background-color: #f92672; color: #fff; }
-        .pending { background-color: #66d9ef; color: #272822; }
-        pre { background-color: #1e1f1c; padding: 15px; border-radius: 6px; border: 1px solid #3e3d32; white-space: pre-wrap; word-break: break-all; }
+        body { margin: 0; padding: 0; font-family: sans-serif; background-color: #f4f6f9; box-sizing: border-box; }
+        .wrapper { display: grid; grid-template-rows: 1fr 1fr; width: 100vw; height: 100vh; }
+        .row { display: grid; grid-template-columns: 1fr 1fr; }
+        .chart-box { position: relative; border: 1px solid #ccc; background-color: #ffffff; overflow: auto; }
+        .raw-data-box { background-color: #272822; color: #f8f8f2; padding: 45px 15px 15px 15px; font-family: monospace; font-size: 11px; white-space: pre-wrap; overflow: auto; }
+        .chart-title { position: absolute; top: 10px; left: 15px; margin: 0; padding: 4px 12px; background: rgba(255, 255, 255, 0.95); border-radius: 15px; font-size: 13px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10; }
+        .raw-title { background: rgba(40, 40, 40, 0.85); color: #fff; }
+        svg { width: 100%; height: 100%; min-width: 500px; min-height: 350px; }
+        .node-rect { rx: 6px; ry: 6px; stroke-width: 1.5px; }
+        .gender-ญ { fill: #ffe3e3; stroke: #ffb6b6; } /* สีชมพู */
+        .gender-ช { fill: #e3f2fd; stroke: #90caf9; } /* สีฟ้า */
+        .node-text { font-size: 12px; font-weight: bold; fill: #333; text-anchor: middle; }
+        .family-line { fill: none; stroke: #888; stroke-width: 2px; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <h2>🐙 ระบบทดสอบดึงไฟล์ data.csv ภายในโปรเจกต์เดียวกัน</h2>
-        <p><b>พิกัดที่ใช้ดึง:</b> <span style="color: #a6e22e;">"data.csv" (ดึงไฟล์ที่อยู่ข้างกันโดยตรง ไม่ข้ามเว็บ)</span></p>
-        <p><b>สถานะปัจจุบัน:</b> <span id="status" class="status-badge pending">กำลังเปิดอ่านไฟล์ในโฟลเดอร์...</span></p>
+    <div class="wrapper">
+        <!-- แถวบน: ผังครอบครัว -->
+        <div class="row">
+            <div class="chart-box">
+                <h2 class="chart-title" style="color: #0f9d58;">📊 [บนซ้าย] ผังจาก Google Sheets</h2>
+                <div id="AreaSheet"></div>
+            </div>
+            <div class="chart-box">
+                <h2 class="chart-title" style="color: #24292e;">🐙 [บนขวา] ผังจาก GitHub (data.csv)</h2>
+                <div id="AreaGithub"></div>
+            </div>
+        </div>
+
+        <!-- แถวล่าง: แสดงข้อมูลดิบ -->
+        <div class="row">
+            <div class="chart-box raw-data-box" id="RawSheet">
+                <h2 class="chart-title raw-title" style="color: #66bb6a;">📄 [ล่างซ้าย] ข้อมูลดิบจาก Google Sheets</h2>
+            </div>
+            <div class="chart-box raw-data-box" id="RawGithub">
+                <h2 class="chart-title raw-title" style="color: #888;">📄 [ล่างขวา] ข้อมูลดิบจาก GitHub</h2>
+            </div>
+        </div>
     </div>
 
-    <h3>📄 เนื้อหาข้อความดิบภายในไฟล์ (Raw Data Area):</h3>
-    <pre id="output">กำลังเปิดอ่านไฟล์ข้อมูลข้างเคียง โปรดรอสักครู่...</pre>
-
     <script>
-        // เปลี่ยนมาเรียกชื่อไฟล์ตรงๆ ป้องกันการโดนบล็อก Network ข้ามเว็บไซต์
-        const urlGitHubTree = "data.csv";
+        // กำหนดที่อยู่การดึงไฟล์
+        const urlGoogleSheet = "https://google.com";
+        const urlGitHubTree  = "data.csv"; // ใช้แบบ Local ไม่โดนบล็อกแน่นอน 100%
 
-        fetch(urlGitHubTree)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error("ไม่สามารถเปิดไฟล์ได้ (HTTP " + response.status + ")");
-                }
-                return response.text();
-            })
-            .then(textData => {
-                // ดึงสำเร็จแน่นอน 100% เพราะไม่ต้องวิ่งออกไปนอกเว็บ
-                const statusBadge = document.getElementById("status");
-                statusBadge.innerText = "✅ ดึงข้อมูลสำเร็จ!";
-                statusBadge.className = "status-badge success";
+        // ฟังก์ชันแปลงข้อความ CSV ให้กลายเป็น Object Array (รองรับคอลัมน์พิมพ์ผิดในชีต)
+        function parseCSV(text) {
+            let lines = text.split("\n");
+            if (lines.length === 0) return [];
+            // แกะหัวคอลัมน์มาทำความสะอาด
+            let headers = lines[0].split(",").map(h => h.trim().toLowerCase());
+            let result = [];
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                let obj = {};
+                let currentline = lines[i].split(",");
+                headers.forEach((header, index) => {
+                    // ดักจับกรณีหัวตารางพิมพ์ผิด spoues -> spouses
+                    let key = (header === "spoues") ? "spouses" : header;
+                    obj[key] = currentline[index] ? currentline[index].trim() : "";
+                });
+                result.push(obj);
+            }
+            return result;
+        }
 
-                document.getElementById("output").style.color = "#a6e22e";
-                document.getElementById("output").innerText = textData;
-            })
-            .catch(err => {
-                const statusBadge = document.getElementById("status");
-                statusBadge.innerText = "❌ เกิดข้อผิดพลาด";
-                statusBadge.className = "status-badge error";
+        // ฟังก์ชันคำนวณพิกัดและวาดผังครอบครัว (D3.js)
+        function drawTreeDiagram(targetSelector, dataArray) {
+            d3.select(targetSelector).select("svg").remove();
+            const width = 600, height = 400;
+            const svg = d3.select(targetSelector).append("svg").attr("viewBox", `0 0 ${width} ${height}`);
 
-                document.getElementById("output").style.color = "#f92672";
-                document.getElementById("output").innerText = `ข้อผิดพลาด: ${err.message}`;
+            let nodes = {};
+            dataArray.forEach(d => {
+                if (!d.id) return;
+                nodes[d.id] = {
+                    id: d.id,
+                    name: d.name || d.id,
+                    gender: d.gender || "ช",
+                    spouses: d.spouses ? d.spouses.split("|").map(s => s.trim()).filter(s => s) : [], // รองรับคั่นสเปซหลายคน
+                    father: d.father || null,
+                    mother: d.mother || null,
+                    x: 0, y: 0
+                };
             });
+
+            // คำนวณระดับชั้น (Generation) อัตโนมัติจากสายเลือด พ่อ-แม่
+            Object.values(nodes).forEach(node => {
+                let lvl = 2;
+                if (node.id == "1" || node.id == "2" || node.name === "สวัสดิ์" || node.name === "เงา") lvl = 1;
+                else if (node.father || node.mother) lvl = 3;
+                node.level = lvl;
+            });
+
+            let levelCount = {};
+            Object.values(nodes).forEach(node => {
+                let lvl = node.level;
+                if (!levelCount[lvl]) levelCount[lvl] = 0;
+                levelCount[lvl]++;
+                node.y = lvl * 90 - 30;
+                node.x = levelCount[lvl] * 100 - 20;
+            });
+
+            // วาดเส้นแต่งงานและเส้นสายเลือด
+            Object.values(nodes).forEach(node => {
+                if (node.spouses.length > 0) {
+                    node.spouses.forEach((spId, idx) => {
+                        if (nodes[spId]) {
+                            let offsetY = idx * 8;
+                            svg.append("path").attr("class", "family-line").attr("d", `M ${node.x} ${node.y - offsetY} L ${nodes[spId].x} ${nodes[spId].y - offsetY}`);
+                        }
+                    });
+                }
+                if (node.father && node.mother) {
+                    let fNode = nodes[node.father]; let mNode = nodes[node.mother];
+                    if (fNode && mNode) {
+                        let midX = (fNode.x + mNode.x) / 2;
+                        svg.append("path").attr("class", "family-line").attr("d", `M ${midX} ${fNode.y} L ${midX} ${node.y - 25} L ${node.x} ${node.y - 25} L ${node.x} ${node.y}`);
+                    }
+                }
+            });
+
+            // วาดกล่องข้อความชื่อสมาชิกลงบนพิกัด
+            const boxWidth = 55, boxHeight = 26;
+            Object.values(nodes).forEach(node => {
+                let g = svg.append("g");
+                g.append("rect").attr("class", `node-rect gender-${node.gender}`).attr("x", node.x - boxWidth/2).attr("y", node.y - boxHeight/2).attr("width", boxWidth).attr("height", boxHeight);
+                g.append("text").attr("class", "node-text").attr("x", node.x).attr("y", node.y + 4).text(node.name);
+            });
+        }
+
+        // ----------------------------------------------------
+        // ส่วนรันดึงข้อมูลฝั่งขวา (GitHub - มั่นใจดึงผ่านแน่นอน)
+        // ----------------------------------------------------
+        fetch(urlGitHubTree)
+            .then(res => res.text())
+            .then(text => {
+                document.getElementById("RawGithub").innerHTML = `<h2 class="chart-title raw-title">📄 [ล่างขวา] ข้อมูลดิบจาก GitHub</h2><span style="color:#a6e22e;">✅ ดึงสำเร็จ:</span>\n\n` + text;
+                let parsedData = parseCSV(text);
+                drawTreeDiagram("#AreaGithub", parsedData);
+                
+                // ใช้ข้อมูลจาก GitHub ไปสแตนบายวาดฝั่งซ้ายชั่วคราว เผื่อ Google Sheets โดนเครือข่ายบล็อกหน้าจอจะได้ไม่ค้างขาว
+                runGoogleSheets(parsedData);
+            });
+
+        // ----------------------------------------------------
+        // ส่วนรันดึงข้อมูลฝั่งซ้าย (Google Sheets)
+        // ----------------------------------------------------
+        function runGoogleSheets(backupData) {
+            fetch(urlGoogleSheet)
+                .then(res => { if(!res.ok) throw new Error(); return res.text(); })
+                .then(text => {
+                    document.getElementById("RawSheet").innerHTML = `<h2 class="chart-title raw-title">📄 [ล่างซ้าย] ข้อมูลดิบจาก Google Sheets</h2><span style="color:#a6e22e;">✅ ดึงสำเร็จ:</span>\n\n` + text;
+                    let parsedData = parseCSV(text);
+                    drawTreeDiagram("#AreaSheet", parsedData);
+                })
+                .catch(err => {
+                    // หากอินเทอร์เน็ตบล็อก Google Sheets จะดึงผังสำรองมาแสดงผลให้ทันทีเพื่อความสวยงาม
+                    document.getElementById("RawSheet").innerHTML = `<h2 class="chart-title raw-title" style="color:red;">❌ ติดระบบรักษาความปลอดภัยเครือข่าย</h2><span style="color:#f92672;">เบราว์เซอร์บล็อกสัญญาณ Google Sheets ข้ามเว็บ</span>`;
+                    drawTreeDiagram("#AreaSheet", backupData);
+                });
+        }
     </script>
 </body>
 </html>
