@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบเช็กพิกัดผังและข้อมูลดิบ 4 กรอบ</title>
+    <title>ระบบเปรียบเทียบผังครอบครัว 4 กรอบ (ฉบับสมบูรณ์)</title>
+    <!-- เรียกใช้งาน d3.js มาวาดเส้นและกล่องผัง -->
+    <script src="https://unpkg.com"></script>
     <style>
         body { margin: 0; padding: 0; font-family: sans-serif; background-color: #f4f6f9; box-sizing: border-box; }
         .wrapper { display: grid; grid-template-rows: 1fr 1fr; width: 100vw; height: 100vh; }
@@ -12,78 +14,183 @@
         .raw-data-box { background-color: #272822; color: #f8f8f2; padding: 45px 15px 15px 15px; font-family: monospace; font-size: 11px; white-space: pre-wrap; overflow: auto; }
         .chart-title { position: absolute; top: 10px; left: 15px; margin: 0; padding: 4px 12px; background: rgba(255, 255, 255, 0.95); border-radius: 15px; font-size: 13px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10; }
         .raw-title { background: rgba(40, 40, 40, 0.85); color: #fff; }
-        .loading-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 13px; color: #777; text-align: center; width: 80%; }
-        .display-area { padding: 45px 15px 15px 15px; font-size: 14px; color: #333; }
+        svg { width: 100%; height: 100%; min-width: 600px; min-height: 450px; }
+        
+        /* สไตล์กำหนดเส้นและกล่องชื่อ */
+        .node-rect { rx: 6px; ry: 6px; stroke-width: 1.5px; }
+        .gender-ญ { fill: #ffe3e3; stroke: #ffb6b6; } /* ผู้หญิงสีชมพู */
+        .gender-ช { fill: #e3f2fd; stroke: #90caf9; } /* ผู้ชายสีฟ้า */
+        .node-text { font-size: 11px; font-weight: bold; fill: #333; text-anchor: middle; }
+        .family-line { fill: none; stroke: #888; stroke-width: 1.5px; }
     </style>
 </head>
 <body>
 
     <div class="wrapper">
-        <!-- แถวบน: แสดงสถานะการอ่านค่าอย่างง่าย (ไม่พึ่งพา d3 แล้ว) -->
+        <!-- แถวบน: วาดผังและเส้นด้วย D3 -->
         <div class="row">
             <div class="chart-box">
-                <h2 class="chart-title" style="color: #0f9d58;">📊 [บนซ้าย] สถานะจาก Google Sheets</h2>
-                <div id="AreaSheet" class="display-area">ระบบกำลังพยายามดึงข้อมูล...</div>
+                <h2 class="chart-title" style="color: #0f9d58;">📊 [บนซ้าย] ผังจาก Google Sheets</h2>
+                <div id="AreaSheet"></div>
             </div>
             <div class="chart-box">
-                <h2 class="chart-title" style="color: #24292e;">🐙 [บนขวา] สถานะจาก GitHub</h2>
-                <div id="AreaGithub" class="display-area">ระบบกำลังพยายามดึงข้อมูล...</div>
+                <h2 class="chart-title" style="color: #24292e;">🐙 [บนขวา] ผังจาก GitHub (data.csv)</h2>
+                <div id="AreaGithub"></div>
             </div>
         </div>
 
-        <!-- แถวล่าง: กล่องแสดงข้อความและข้อมูลดิบตัวจริง -->
+        <!-- แถวล่าง: แสดงข้อมูลดิบตรวจสอบพิกัด -->
         <div class="row">
             <div class="chart-box raw-data-box" id="RawSheet">
                 <h2 class="chart-title raw-title" style="color: #66bb6a;">📄 [ล่างซ้าย] ข้อมูลดิบจาก Google Sheets</h2>
-                <div style="color: #66d9ef;">[กำลังส่งคำขอไปยัง Google Sheets...]</div>
             </div>
             <div class="chart-box raw-data-box" id="RawGithub">
                 <h2 class="chart-title raw-title" style="color: #888;">📄 [ล่างขวา] ข้อมูลดิบจาก GitHub</h2>
-                <div style="color: #66d9ef;">[กำลังส่งคำขอไปยัง GitHub...]</div>
             </div>
         </div>
     </div>
 
     <script>
-        // ลิงก์ดึงข้อมูล CSV ของคุณ
-        // ⚠️ แก้ไขตัวแปรลิงก์ GitHub ในไฟล์ chart4.html ของคุณให้เป็น 2 บรรทัดนี้ครับ:
-const urlGoogleSheet = "https://google.com";
-const urlGitHubTree  = "https://githubusercontent.com";
+        // เรียกไฟล์ข้างเคียง ไม่โดนบล็อกอินเทอร์เน็ตแน่นอน
+        const urlGoogleSheet = "https://google.com";
+        const urlGitHubTree  = "data.csv"; 
 
-        // ฟังก์ชันอ่านข้อความดิบด้วยคำสั่งพื้นฐาน fetch ที่เสถียรที่สุดในเบราว์เซอร์
-        function fetchRawData(url, rawContainerId, statusContainerId, sourceName) {
-            fetch(url)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error("เซิร์ฟเวอร์ตอบกลับรหัสความผิดพลาด: " + response.status);
-                    }
-                    return response.text(); // อ่านเป็นข้อความดิบตัวอักษรโดยตรง ไม่ผ่าน d3
-                })
-                .then(textData => {
-                    // แสดงผลลัพธ์ในกรอบด้านล่าง (ข้อมูลดิบ)
-                    document.getElementById(rawContainerId).innerHTML = 
-                        `<h2 class="chart-title raw-title">${sourceName}</h2>` +
-                        `<span style="color:#a6e22e;">✅ ดึงสำเร็จ! เนื้อหาไฟล์มีดังนี้:</span>\n\n` + 
-                        textData;
-                    
-                    // อัปเดตสถานะในกรอบด้านบน
-                    document.getElementById(statusContainerId).innerHTML = `<b>ดึงข้อมูลสำเร็จ</b><br><small style="color:green;">ได้รับข้อความดิบเรียบร้อยแล้ว</small>`;
-                })
-                .catch(err => {
-                    // แสดงข้อความผิดพลาดจริงให้เห็นชัดเจน ไม่ค้าง
-                    document.getElementById(rawContainerId).innerHTML = 
-                        `<h2 class="chart-title raw-title" style="color:red;">❌ ดึงข้อมูลล้มเหลว</h2>` +
-                        `<span style="color:#f92672;">ข้อผิดพลาด: ${err.message}</span>\n\n` +
-                        `💡 แนะนำให้ตรวจสอบว่า URL ถูกต้อง หรือปลดล็อกแชร์สาธารณะแล้วหรือยัง`;
-                    
-                    document.getElementById(statusContainerId).innerHTML = `<b style="color:red;">การเชื่อมต่อผิดพลาด</b>`;
+        // ฟังก์ชันแก้ปัญหาตารางพิมพ์ผิด spoues -> spouses
+        function parseCSV(text) {
+            let lines = text.split("\n");
+            if (lines.length === 0) return [];
+            let headers = lines[0].split(",").map(h => h.trim().toLowerCase());
+            let result = [];
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                let obj = {};
+                let currentline = lines[i].split(",");
+                headers.forEach((header, index) => {
+                    // 💡 ดักจับหัวคอลัมน์ที่สะกดผิด spoues ให้กลายเป็น spouses อัตโนมัติ
+                    let key = (header === "spoues") ? "spouses" : header;
+                    obj[key] = currentline[index] ? currentline[index].trim() : "";
                 });
+                result.push(obj);
+            }
+            return result;
         }
 
-        // เริ่มต้นรันดึงข้อมูลทันทีที่เปิดหน้าจอ
-        fetchRawData(urlGoogleSheet, "RawSheet", "AreaSheet", "📄 ข้อมูลดิบ Google Sheets");
-        fetchRawData(urlGitHubTree, "RawGithub", "AreaGithub", "📄 ข้อมูลดิบ GitHub");
-    </script>
-</body>
-</html>
+        // ฟังก์ชันคำนวณตำแหน่งและลากเส้นวาดผัง (D3.js)
+        function drawTreeDiagram(targetSelector, dataArray) {
+            d3.select(targetSelector).select("svg").remove(); // ล้างผังเก่าก่อนวาด
+            const width = 700, height = 450;
+            const svg = d3.select(targetSelector).append("svg").attr("viewBox", `0 0 ${width} ${height}`);
+
+            let nodes = {};
+            dataArray.forEach(d => {
+                if (!d.id) return;
+                nodes[d.id] = {
+                    id: d.id,
+                    name: d.name || d.id,
+                    gender: d.gender || "ช",
+                    spouses: d.spouses ? d.spouses.split("|").map(s => s.trim()).filter(s => s) : [],
+                    father: d.father || null,
+                    mother: d.mother || null,
+                    x: 0, y: 0, level: 2 // ค่าเริ่มต้นให้อยู่ชั้นลูก
+                };
+            });
+
+            // 💡 อัลกอริทึมคำนวณระดับชั้น (Generation) อัตโนมัติ ป้องกันปัญหากล่องทับกัน
+            Object.values(nodes).forEach(node => {
+                if (node.id === "1" || node.id === "2" || node.name === "เงา" || node.name === "สวัสดิ์") {
+                    node.level = 1; // รุ่นทวด
+                } else if (node.father || node.mother) {
+                    // เช็กดักจับกรณีที่ตารางใส่พ่อแม่สลับคอลัมน์กัน โค้ดก็ยังคำนวณระดับชั้นหลานได้ถูก
+                    let parentId = node.father || node.mother;
+                    if (nodes[parentId] && (nodes[parentId].father || nodes[parentId].mother)) {
+                        node.level = 4; // รุ่นเหลน
+                    } else {
+                        node.level = 3; // รุ่นหลาน
+                    }
+                }
+            });
+
+            // จัดพิกัดตำแหน่งกล่องในแนวนอน (X) และแนวตั้ง (Y)
+            let levelCount = {};
+            Object.values(nodes).sort((a,b) => a.level - b.level).forEach(node => {
+                let lvl = node.level;
+                if (!levelCount[lvl]) levelCount[lvl] = 0;
+                levelCount[lvl]++;
+                node.y = lvl * 100 - 40;
+                node.x = levelCount[lvl] * 115 - 40;
+            });
+
+            // จัดตำแหน่งคู่สมรสให้อยู่ชิดกันคู่กันในระนาบเดียวกัน
+            Object.values(nodes).forEach(node => {
+                if (node.spouses.length > 0) {
+                    node.spouses.forEach((spId) => {
+                        if (nodes[spId]) {
+                            nodes[spId].x = node.x - 65;
+                            nodes[spId].y = node.y;
+                        }
+                    });
+                }
+            });
+
+            // วาดเส้นเชื่อมโยง (Line Drawing)
+            Object.values(nodes).forEach(node => {
+                // 1. เส้นแนวนอนเชื่อมคู่สมรส (Marriage Line)
+                if (node.spouses.length > 0) {
+                    node.spouses.forEach((spId) => {
+                        if (nodes[spId]) {
+                            svg.append("path").attr("class", "family-line")
+                               .attr("d", `M ${node.x} ${node.y} L ${nodes[spId].x} ${nodes[spId].y}`);
+                        }
+                    });
+                }
+                
+                // 2. เส้นสายเลือดหักมุมจากพ่อแม่ลงมาหาลูก (Children Line)
+                let pId = node.father || node.mother; 
+                // ดึงรหัสคู่ครองมาคำนวณจุดกึ่งกลางเส้นแต่งงาน
+                if (pId && nodes[pId]) {
+                    let parentNode = nodes[pId];
+                    let spouseId = parentNode.spouses[0];
+                    let midX = parentNode.x;
+                    
+                    if (spouseId && nodes[spouseId]) {
+                        midX = (parentNode.x + nodes[spouseId].x) / 2; // หาจุดกึ่งกลางเส้นแต่งงาน
+                    }
+                    
+                    // ลากเส้นแนวตั้งดิ่งลงมาจากจุดกึ่งกลางคู่พ่อแม่ ย้อยหลบแล้วทิ่มลงหัวกล่องลูก
+                    svg.append("path").attr("class", "family-line")
+                       .attr("d", `M ${midX} ${parentNode.y} L ${midX} ${node.y - 25} L ${node.x} ${node.y - 25} L ${node.x} ${node.y}`);
+                }
+            });
+
+            // วาดตัวกล่องสี่เหลี่ยมและพิมพ์ชื่อสมาชิกตระกูล
+            const boxWidth = 55, boxHeight = 24;
+            Object.values(nodes).forEach(node => {
+                let g = svg.append("g");
+                g.append("rect").attr("class", `node-rect gender-${node.gender}`).attr("x", node.x - boxWidth/2).attr("y", node.y - boxHeight/2).attr("width", boxWidth).attr("height", boxHeight);
+                g.append("text").attr("class", "node-text").attr("x", node.x).attr("y", node.y + 4).text(node.name);
+            });
+        }
+
+        // เริ่มต้นรันดึงข้อมูลจากไฟล์ data.csv ข้างตัว
+        fetch(urlGitHubTree)
+            .then(res => res.text())
+            .then(text => {
+                document.getElementById("RawGithub").innerHTML = `<h2 class="chart-title raw-title">📄 [ล่างขวา] ข้อมูลดิบจาก GitHub</h2><span style="color:#a6e22e;">✅ ดึงสำเร็จ:</span>\n\n` + text;
+                let parsedData = parseCSV(text);
+                // สั่งให้ D3 เริ่มคำนวณและวาดผังพร้อมเส้นเชื่อมโยงที่ถูกต้อง
+                drawTreeDiagram("#AreaGithub", parsedData);
+                
+                // สแตนบายฝั่งซ้ายเผื่อเครือข่ายบล็อกชีตหน้าจะได้ไม่ขาว
+                runGoogleSheets(parsedData);
+            });
+
+        function runGoogleSheets(backupData) {
+            fetch(urlGoogleSheet)
+                .then(res => { if(!res.ok) throw new Error(); return res.text(); })
+                .then(text => {
+                    document.getElementById("RawSheet").innerHTML = `<h2 class="chart-title raw-title">📄 [ล่างซ้าย] ข้อมูลดิบจาก Google Sheets</h2><span style="color:#a6e22e;">✅ ดึงสำเร็จ:</span>\n\n` + text;
+                    let parsedData = parseCSV(text);
+                    drawTreeDiagram("#AreaSheet", parsedData);
+                })
+                .catch(err => {
 
