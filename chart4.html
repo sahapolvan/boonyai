@@ -67,9 +67,12 @@
         // ฟังก์ชันแปลงข้อความ CSV ดิบ
         function parseCSV(text) {
             let lines = text.split("\n");
-            if (lines.length === 0) return [];
-            let headers = lines.split(",").map(h => h.trim().toLowerCase());
+            if (lines.length === 0 || !lines[0].trim()) return [];
+            
+            // 💡 แก้ไขจุดผิดพลาดตรงนี้: เปลี่ยนจาก lines.split เป็น lines[0].split ที่ถูกต้องแล้วครับ
+            let headers = lines[0].split(",").map(h => h.trim().toLowerCase());
             let result = [];
+            
             for (let i = 1; i < lines.length; i++) {
                 if (!lines[i].trim()) continue;
                 let obj = {};
@@ -205,3 +208,4 @@
     </script>
 </body>
 </html>
+
