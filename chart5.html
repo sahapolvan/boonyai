@@ -3,91 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ทดสอบดึงข้อความดิบจาก GitHub (chart5)</title>
+    <title>ทดสอบดึงข้อความดิบจาก GitHub (Local File)</title>
     <style>
-        body { 
-            margin: 0; 
-            padding: 20px; 
-            font-family: monospace; 
-            background-color: #272822; /* พื้นหลังสีดำแบบ Code Editor */
-            color: #f8f8f2; 
-            font-size: 14px;
-            line-height: 1.6;
-        }
-        .header {
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #3e3d32;
-        }
-        .status-badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-weight: bold;
-            font-size: 12px;
-        }
+        body { margin: 0; padding: 20px; font-family: monospace; background-color: #272822; color: #f8f8f2; font-size: 14px; line-height: 1.6; }
+        .header { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #3e3d32; }
+        .status-badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 12px; }
         .success { background-color: #a6e22e; color: #272822; }
         .error { background-color: #f92672; color: #fff; }
         .pending { background-color: #66d9ef; color: #272822; }
-        
-        pre {
-            background-color: #1e1f1c;
-            padding: 15px;
-            border-radius: 6px;
-            border: 1px solid #3e3d32;
-            white-space: pre-wrap;
-            word-break: break-all;
-        }
+        pre { background-color: #1e1f1c; padding: 15px; border-radius: 6px; border: 1px solid #3e3d32; white-space: pre-wrap; word-break: break-all; }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h2>🐙 ระบบทดสอบดึงไฟล์ data.csv จาก GitHub</h2>
-        <p><b>ลิงก์ที่ระบบใช้ดึงข้อมูล:</b> <br><span style="color: #66d9ef;">https://githubusercontent.com</span></p>
-        <p><b>สถานะปัจจุบัน:</b> <span id="status" class="status-badge pending">กำลังส่งคำขอไปคลัง GitHub...</span></p>
+        <h2>🐙 ระบบทดสอบดึงไฟล์ data.csv ภายในโปรเจกต์เดียวกัน</h2>
+        <p><b>พิกัดที่ใช้ดึง:</b> <span style="color: #a6e22e;">"data.csv" (ดึงไฟล์ที่อยู่ข้างกันโดยตรง ไม่ข้ามเว็บ)</span></p>
+        <p><b>สถานะปัจจุบัน:</b> <span id="status" class="status-badge pending">กำลังเปิดอ่านไฟล์ในโฟลเดอร์...</span></p>
     </div>
 
     <h3>📄 เนื้อหาข้อความดิบภายในไฟล์ (Raw Data Area):</h3>
-    <!-- ช่องที่จะแสดงเนื้อหาตัวหนังสือจากใน GitHub ของคุณ -->
-    <pre id="output">ระบบกำลังเชื่อมต่อไปยังเซิร์ฟเวอร์ GitHub ข้ามเว็บไซต์ โปรดรอสักครู่...</pre>
+    <pre id="output">กำลังเปิดอ่านไฟล์ข้อมูลข้างเคียง โปรดรอสักครู่...</pre>
 
     <script>
-        // กำหนดที่อยู่ลิงก์ดึงข้อมูล CSV ของคุณแบบดิบ (ตัวพิมพ์เล็กทั้งหมดตามคลังของคุณ)
-        const urlGitHubTree = "https://githubusercontent.com";
+        // เปลี่ยนมาเรียกชื่อไฟล์ตรงๆ ป้องกันการโดนบล็อก Network ข้ามเว็บไซต์
+        const urlGitHubTree = "data.csv";
 
-        // ใช้คำสั่ง fetch ดั้งเดิมของเบราว์เซอร์ไปดึงข้อความมาตรงๆ ไม่แปลงข้อมูล ไม่ใช้ d3
         fetch(urlGitHubTree)
             .then(response => {
-                // ตรวจสอบว่าระบบตอบกลับมาสำเร็จไหม (เช่น ติดล็อกสิทธิ์ 404 หรือไม่)
                 if (!response.ok) {
-                    throw new Error("เซิร์ฟเวอร์ตอบกลับรหัสล้มเหลว (HTTP " + response.status + ")");
+                    throw new Error("ไม่สามารถเปิดไฟล์ได้ (HTTP " + response.status + ")");
                 }
-                return response.text(); // แกะกล่องข้อมูลออกมาเป็นข้อความธรรมดา
+                return response.text();
             })
             .then(textData => {
-                // เคสที่ 1: ดึงสำเร็จร้อยเปอร์เซ็นต์
-                // เปลี่ยนสถานะเป็นสีเขียว
+                // ดึงสำเร็จแน่นอน 100% เพราะไม่ต้องวิ่งออกไปนอกเว็บ
                 const statusBadge = document.getElementById("status");
-                statusBadge.innerText = "✅ เชื่อมต่อและดึงข้อมูลสำเร็จ!";
+                statusBadge.innerText = "✅ ดึงข้อมูลสำเร็จ!";
                 statusBadge.className = "status-badge success";
 
-                // เอาข้อความทั้งหมดจาก GitHub มาพ่นใส่หน้าจอ
-                document.getElementById("output").style.color = "#a6e22e"; // เปลี่ยนตัวหนังสือเป็นสีเขียวสว่าง
+                document.getElementById("output").style.color = "#a6e22e";
                 document.getElementById("output").innerText = textData;
             })
             .catch(err => {
-                // เคสที่ 2: ดึงไม่ผ่าน (โดนบล็อกเครือข่าย หรือ ลิงก์พัง)
-                // เปลี่ยนสถานะเป็นสีแดง
                 const statusBadge = document.getElementById("status");
-                statusBadge.innerText = "❌ ดึงข้อมูลล้มเหลว (Failed)";
+                statusBadge.innerText = "❌ เกิดข้อผิดพลาด";
                 statusBadge.className = "status-badge error";
 
-                // พิมพ์ฟ้องรายละเอียดของ Error จริงๆ ออกมาให้เห็นชัดเจนบนหน้าจอ
-                document.getElementById("output").style.color = "#f92672"; // เปลี่ยนตัวหนังสือเป็นสีแดงแจ๋
-                document.getElementById("output").innerText = 
-                    `เกิดข้อผิดพลาด: ${err.message}\n\n` +
-                    `💡 หากขึ้นว่า Failed to fetch แปลว่าระบบความปลอดภัยของเบราว์เซอร์บนมือถือหรือเครือข่ายอินเทอร์เน็ตที่คุณใช้อยู่ กำลังบล็อกสัญญาณการดึงข้อมูลข้ามเว็บไซต์ (Cross-Origin) ครับ`;
+                document.getElementById("output").style.color = "#f92672";
+                document.getElementById("output").innerText = `ข้อผิดพลาด: ${err.message}`;
             });
     </script>
 </body>
