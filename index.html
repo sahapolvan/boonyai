@@ -8,7 +8,7 @@
     <script src="https://balkan.app"></script>
     <style>
         html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
-        #tree { width: 100%; height: 100vh; background-color: #f3f4f6; } /* เปลี่ยนเป็นสีสว่างเพื่อเช็คว่าโหลดผ่านไหม */
+        #tree { width: 100%; height: 100vh; background-color: #232323; } /* กลับมาเป็นพื้นหลังสีเข้มสวยงามตามรูปแรกสุด */
     </style>
 </head>
 <body>
@@ -19,7 +19,6 @@
     <script>
         // เริ่มตั้งค่าระบบและเปิดแถบค้นหาด้านบน
         var family = new FamilyTree(document.getElementById("tree"), {
-            template: "balkan", // ธีมสากลมาตรฐานป้องกันการโหลดพลาด
             mouseScroller: FamilyTree.action.zoom,
             showXControls: true,
             showYControls: true,
@@ -29,7 +28,7 @@
             }
         });
 
-        // ชุดข้อมูลแก้บั๊กการเชื่อมโยงความสัมพันธ์เรียบร้อยแล้ว
+        // ชุดข้อมูลที่เชื่อมโยงความสัมพันธ์ปุ่มคู่สมรส (pids) ครบถ้วนตามเงื่อนไขระบบเรียบร้อยแล้ว
         family.load([
             { id: 1, pids:, name: "เภา", gender: "male" },
             { id: 2, pids:, name: "สวัสดิ์", gender: "female" },
@@ -42,14 +41,20 @@
             { id: 9, fid: 1, mid: 2, pids:, name: "เกย", gender: "female" },
             { id: 10, pids:, name: "บุญช้อน", gender: "male" },
             { id: 11, fid: 1, mid: 2, name: "แอ้", gender: "male" },
+            
+            // แม้วมีเมีย 3 คน (20, 25, 26)
             { id: 12, fid: 4, mid: 3, pids:, name: "แม้ว", gender: "male" },
             { id: 13, fid: 4, mid: 3, pids:, name: "ขวัญ", gender: "female" },
+            
+            // ตี๋มีเมีย 3 คน (32, 33, 34)
             { id: 14, fid: 5, mid: 6, pids:, name: "ตี๋", gender: "male" },
             { id: 15, fid: 5, mid: 6, pids:, name: "ตู่", gender: "male" },
             { id: 16, fid: 7, mid: 8, pids:, name: "ปุ๋ย", gender: "female" },
             { id: 17, fid: 7, mid: 8, pids:, name: "ป๊อบ", gender: "female" },
             { id: 18, fid: 10, mid: 9, name: "ทัด", gender: "male" },
             { id: 19, fid: 10, mid: 9, name: "แวน", gender: "male" },
+            
+            // กลุ่มสะใภ้-เขย และลูกๆ
             { id: 20, pids:, name: "น้อล", gender: "female" },
             { id: 21, pids:, name: "ตอง", gender: "male" },
             { id: 22, pids:, name: "นุ้ย", gender: "female" },
@@ -57,14 +62,18 @@
             { id: 24, pids:, name: "สมชาย", gender: "male" },
             { id: 25, pids:, name: "ดาว", gender: "female" },
             { id: 26, pids:, name: "เบนซ์", gender: "female" },
+            
             { id: 27, fid: 12, mid: 20, name: "เอ", gender: "female" },
             { id: 28, fid: 12, mid: 20, name: "อิ๋ง", gender: "female" },
             { id: 29, fid: 21, mid: 13, name: "โตนนท์", gender: "male" },
             { id: 30, fid: 21, mid: 13, name: "โมน่า", gender: "female" },
             { id: 31, fid: 15, mid: 22, name: "อะตอม", gender: "female" },
+            
+            // เมียของตี๋
             { id: 32, pids:, name: "โค้ง", gender: "female" },
             { id: 33, pids:, name: "ต้อง", gender: "female" },
             { id: 34, pids:, name: "ตั้ม", gender: "female" },
+            
             { id: 35, fid: 12, mid: 25, name: "บี", gender: "female" },
             { id: 36, fid: 12, mid: 26, name: "ซี", gender: "male" },
             { id: 37, fid: 23, mid: 16, name: "แป้ง", gender: "female" },
