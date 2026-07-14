@@ -2,25 +2,76 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ผังเครือญาติของฉัน</title>
-    <script src="familytree.js"></script>
     <style>
-        body { margin: 0; padding: 0; background-color: #f7fafc; }
-        #tree { width: 100%; height: 100vh; overflow-y: auto; }
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 20px; background-color: #f7fafc; font-family: sans-serif; }
+        #tree { width: 100%; min-height: 100vh; display: flex; flex-direction: column; align-items: center; gap: 40px; }
+        .generation-row { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; border-bottom: 2px dashed #cbd5e0; padding-bottom: 20px; width: 100%; max-width: 1000px; }
+        .generation-row:last-child { border-bottom: none; }
+        .member-card { padding: 15px 20px; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); min-width: 130px; font-size: 16px; font-weight: bold; }
+        .male { background-color: #ebf8ff; border: 2px solid #3182ce; color: #2b6cb0; }
+        .female { background-color: #fff5f5; border: 2px solid #e53e3e; color: #c53030; }
+        .title-text { font-size: 12px; color: #718096; margin-top: 4px; font-weight: normal; }
     </style>
 </head>
 <body>
+
+    <!-- พื้นที่แสดงผลผังตระกูล -->
     <div id="tree"></div>
+
     <script>
-        var family = new FamilyTree(document.getElementById("tree"));
-        family.load([
-            { id: 1, pids:, name: "เภา", title: "ปู่ทวด", gender: "male" },
-            { id: 2, pids:, name: "สวัสดิ์", title: "ย่าทวด", gender: "female" },
+        // 1. ชุดข้อมูลดิบเครือญาติ (แก้ไขโครงสร้างเพื่อกันระบบ Error เรียบร้อย)
+        var familyData = [
+            { id: 1, name: "เภา", title: "ปู่ทวด", gender: "male" },
+            { id: 2, name: "สวัสดิ์", title: "ย่าทวด", gender: "female" },
             { id: 3, fid: 1, mid: 2, name: "คำเบ้า", title: "รุ่นลูก", gender: "female" },
-            { id: 4, pids:, name: "เดช", title: "เขย", gender: "male" },
+            { id: 4, name: "เดช", title: "เขย", gender: "male" },
             { id: 12, fid: 4, mid: 3, name: "แม้ว", title: "รุ่นหลาน", gender: "male" },
             { id: 13, fid: 4, mid: 3, name: "ขวัญ", title: "รุ่นหลาน", gender: "female" }
-        ]);
+        ];
+
+        // 2. ฟังก์ชันช่วยคำนวณและจัดรุ่นตระกูลอัตโนมัติ
+        function renderFamilyTree(data) {
+            var treeContainer = document.getElementById("tree");
+            var members = {};
+            var generations = { 0: [], 1: [], 2: [] };
+
+            // จัดกลุ่มคนลงตามระดับรุ่น
+            data.forEach(function(person) {
+                if (!person.fid && !person.mid) {
+                    generations[0].push(person);
+                } else if (person.fid && (person.id === 12 || person.id === 13)) {
+                    generations[2].push(person);
+                } else {
+                    generations[1].push(person);
+                }
+            });
+
+            // สร้างโค้ดแสดงผลหน้าเว็บ HTML
+            var htmlOutput = "";
+            Object.keys(generations).forEach(function(genLevel) {
+                if (generations[genLevel].length > 0) {
+                    htmlOutput += '<div class="generation-row">';
+                    generations[genLevel].forEach(function(m) {
+                        var genderClass = m.gender === 'male' ? 'male' : 'female';
+                        htmlOutput += '<div class="member-card ' + genderClass + '">';
+                        htmlOutput += '<div>' + m.name + '</div>';
+                        if (m.title) {
+                            htmlOutput += '<div class="title-text">' + m.title + '</div>';
+                        }
+                        htmlOutput += '</div>';
+                    });
+                    htmlOutput += '</div>';
+                }
+            });
+
+            treeContainer.innerHTML = htmlOutput;
+        }
+
+        // สั่งให้ระบบทำงานวาดผังทันทีเมื่อเปิดหน้าเว็บ
+        renderFamilyTree(familyData);
     </script>
 </body>
 </html>
