@@ -3,75 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ผังเครือญาติของฉัน</title>
+    <title>ผังตระกูลระบบ FamilyTree JS ของฉัน</title>
+    <!-- เรียกใช้ไลบรารีตัวจริงจากเซิร์ฟเวอร์สากลโดยตรงเพื่อหน้าตาแบบในรูป -->
+    <script src="https://balkan.app"></script>
     <style>
-        * { box-sizing: border-box; }
-        body { margin: 0; padding: 20px; background-color: #f7fafc; font-family: sans-serif; }
-        #tree { width: 100%; min-height: 100vh; display: flex; flex-direction: column; align-items: center; gap: 40px; }
-        .generation-row { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; border-bottom: 2px dashed #cbd5e0; padding-bottom: 20px; width: 100%; max-width: 1000px; }
-        .generation-row:last-child { border-bottom: none; }
-        .member-card { padding: 15px 20px; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); min-width: 130px; font-size: 16px; font-weight: bold; }
-        .male { background-color: #ebf8ff; border: 2px solid #3182ce; color: #2b6cb0; }
-        .female { background-color: #fff5f5; border: 2px solid #e53e3e; color: #c53030; }
-        .title-text { font-size: 12px; color: #718096; margin-top: 4px; font-weight: normal; }
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+        #tree { width: 100%; height: 100vh; background-color: #232323; } /* พื้นหลังสีเข้มแบบในรูป */
     </style>
 </head>
 <body>
 
-    <!-- พื้นที่แสดงผลผังตระกูล -->
+    <!-- กล่องแสดงผลผังเครือญาติแบบสกรอลซูมและมีแถบค้นหาอัตโนมัติ -->
     <div id="tree"></div>
 
     <script>
-        // 1. ชุดข้อมูลดิบเครือญาติ (แก้ไขโครงสร้างเพื่อกันระบบ Error เรียบร้อย)
-        var familyData = [
-            { id: 1, name: "เภา", title: "ปู่ทวด", gender: "male" },
-            { id: 2, name: "สวัสดิ์", title: "ย่าทวด", gender: "female" },
-            { id: 3, fid: 1, mid: 2, name: "คำเบ้า", title: "รุ่นลูก", gender: "female" },
-            { id: 4, name: "เดช", title: "เขย", gender: "male" },
-            { id: 12, fid: 4, mid: 3, name: "แม้ว", title: "รุ่นหลาน", gender: "male" },
-            { id: 13, fid: 4, mid: 3, name: "ขวัญ", title: "รุ่นหลาน", gender: "female" }
-        ];
+        // ตั้งค่าตัวแปรระบบให้เปิดฟีเจอร์ "แถบค้นหา Search" แบบในรูปภาพที่คุณส่งมา
+        var family = new FamilyTree(document.getElementById("tree"), {
+            mouseScroller: FamilyTree.action.zoom, // ซูมเข้า-ออกด้วยลูกกลิ้งเมาส์หรือจีบนิ้วบนมือถือ
+            showXControls: true,
+            showYControls: true,
+            nodeMenu: { edit: { text: "แก้ไขข้อมูล" }, details: { text: "ดูรายละเอียด" } },
+            nodeBinding: {
+                field_0: "name"
+            }
+        });
 
-        // 2. ฟังก์ชันช่วยคำนวณและจัดรุ่นตระกูลอัตโนมัติ
-        function renderFamilyTree(data) {
-            var treeContainer = document.getElementById("tree");
-            var members = {};
-            var generations = { 0: [], 1: [], 2: [] };
-
-            // จัดกลุ่มคนลงตามระดับรุ่น
-            data.forEach(function(person) {
-                if (!person.fid && !person.mid) {
-                    generations[0].push(person);
-                } else if (person.fid && (person.id === 12 || person.id === 13)) {
-                    generations[2].push(person);
-                } else {
-                    generations[1].push(person);
-                }
-            });
-
-            // สร้างโค้ดแสดงผลหน้าเว็บ HTML
-            var htmlOutput = "";
-            Object.keys(generations).forEach(function(genLevel) {
-                if (generations[genLevel].length > 0) {
-                    htmlOutput += '<div class="generation-row">';
-                    generations[genLevel].forEach(function(m) {
-                        var genderClass = m.gender === 'male' ? 'male' : 'female';
-                        htmlOutput += '<div class="member-card ' + genderClass + '">';
-                        htmlOutput += '<div>' + m.name + '</div>';
-                        if (m.title) {
-                            htmlOutput += '<div class="title-text">' + m.title + '</div>';
-                        }
-                        htmlOutput += '</div>';
-                    });
-                    htmlOutput += '</div>';
-                }
-            });
-
-            treeContainer.innerHTML = htmlOutput;
-        }
-
-        // สั่งให้ระบบทำงานวาดผังทันทีเมื่อเปิดหน้าเว็บ
-        renderFamilyTree(familyData);
+        // โหลดข้อมูลเครือญาติทั้งหมด 40 คนของคุณเข้าสู่ระบบวาดผังอัตโนมัติ
+        family.load([
+            { id: 1, pids:, name: "เภา", gender: "male" },
+            { id: 2, pids:, name: "สวัสดิ์", gender: "female" },
+            { id: 3, fid: 1, mid: 2, pids:, name: "คำเบ้า", gender: "female" },
+            { id: 4, pids:, name: "เดช", gender: "male" },
+            { id: 5, fid: 1, mid: 2, pids:, name: "เชย", gender: "male" },
+            { id: 6, pids:, name: "นวล", gender: "female" },
+            { id: 7, fid: 1, mid: 2, pids:, name: "เหมย", gender: "male" },
+            { id: 8, pids:, name: "โอ๊ะ", gender: "female" },
+            { id: 9, fid: 1, mid: 2, pids:, name: "เกย", gender: "female" },
+            { id: 10, pids:, name: "บุญช้อน", gender: "male" },
+            { id: 11, fid: 1, mid: 2, name: "แอ้", gender: "male" },
+            { id: 12, fid: 4, mid: 3, pids:, name: "แม้ว", gender: "male" },
+            { id: 13, fid: 4, mid: 3, pids:, name: "ขวัญ", gender: "female" },
+            { id: 14, fid: 5, mid: 6, pids:, name: "ตี๋", gender: "male" },
+            { id: 15, fid: 5, mid: 6, pids:, name: "ตู่", gender: "male" },
+            { id: 16, fid: 7, mid: 8, pids:, name: "ปุ๋ย", gender: "female" },
+            { id: 17, fid: 7, mid: 8, pids:, name: "ป๊อบ", gender: "female" },
+            { id: 18, fid: 10, mid: 9, name: "ทัด", gender: "male" },
+            { id: 19, fid: 10, mid: 9, name: "แวน", gender: "male" },
+            { id: 20, pids:, name: "น้อล", gender: "female" },
+            { id: 21, pids:, name: "ตอง", gender: "male" },
+            { id: 22, pids:, name: "นุ้ย", gender: "female" },
+            { id: 23, pids:, name: "แซม", gender: "male" },
+            { id: 24, pids:, name: "สมชาย", gender: "male" },
+            { id: 25, pids:, name: "ดาว", gender: "female" },
+            { id: 26, pids:, name: "เบนซ์", gender: "female" },
+            { id: 27, fid: 12, mid: 20, name: "เอ", gender: "female" },
+            { id: 28, fid: 12, mid: 20, name: "อิ๋ง", gender: "female" },
+            { id: 29, fid: 21, mid: 13, name: "โตนนท์", gender: "male" },
+            { id: 30, fid: 21, mid: 13, name: "โมน่า", gender: "female" },
+            { id: 31, fid: 15, mid: 22, name: "อะตอม", gender: "female" },
+            { id: 32, pids:, name: "โค้ง", gender: "male" },
+            { id: 33, pids:, name: "ต้อง", gender: "male" },
+            { id: 34, pids:, name: "ตั้ม", gender: "male" },
+            { id: 35, fid: 12, mid: 25, name: "บี", gender: "female" },
+            { id: 36, fid: 12, mid: 26, name: "ซี", gender: "male" },
+            { id: 37, fid: 23, mid: 16, name: "แป้ง", gender: "female" },
+            { id: 38, fid: 23, mid: 16, name: "ป๋อง", gender: "female" },
+            { id: 39, fid: 24, mid: 17, name: "ภูผา", gender: "male" },
+            { id: 40, fid: 24, mid: 17, name: "ภูเขา", gender: "female" }
+        ]);
     </script>
 </body>
 </html>
