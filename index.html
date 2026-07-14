@@ -1,211 +1,39 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <title>ผังครอบครัวระบบเครือข่ายความสัมพันธ์</title>
-    
-    <!-- โหลดไลบรารี Vis.js สำหรับวาดโครงสร้างเครือข่ายความสัมพันธ์ซับซ้อน -->
-    <script src="https://cloudflare.com"></script>
-    
-    <style>
-        * { box-sizing: border-box; }
-        body { margin: 0; background-color: #f5f6fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
-        
-        /* ตั้งค่าขนาดหน้าจอแสดงผลเต็มจอ */
-        #family-network {
-            width: 100vw;
-            height: 100vh;
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
-
-        /* กล่องคำแนะนำสัญลักษณ์และวิธีใช้งาน */
-        #legend-box {
-            position: absolute;
-            top: 15px;
-            left: 15px;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            font-size: 13px;
-            z-index: 10;
-            max-width: 320px;
-            line-height: 1.6;
-            border-left: 5px solid #3498db;
-            pointer-events: none; /* เพื่อไม่ให้กล่องขวางการคลิกลากผังด้านหลัง */
-        }
-        .color-dot {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 3px;
-            margin-right: 5px;
-            vertical-align: middle;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>ผังตระกูล FamilyTree JS</title>
+  <!-- ดึง FamilyTree JS มาใช้งาน -->
+  <script src="https://balkan.app"></script>
 </head>
 <body>
 
-    <!-- ส่วนจัดแสดงคำอธิบายผัง -->
-    <div id="legend-box">
-        🌳 <b>ผังสายสัมพันธ์ครอบครัว (เสถียรสูงบน GitHub)</b><br>
-        • เลื่อนลูกกลิ้งเมาส์ เพื่อ <b>ซูมเข้า-ออก</b><br>
-        • คลิกซ้ายค้างที่พื้นหลัง เพื่อ <b>ลากย้ายมุมมอง</b><br>
-        • คลิกซ้ายค้างที่กล่องบุคคล เพื่อ <b>ลากจัดตำแหน่งเองได้อิสระ</b><br>
-        <hr style="border: 0; border-top: 1px solid #ddd; margin: 10px 0;">
-        <b>🎨 ความหมายสีและเส้นเชื่อมโยง:</b><br>
-        <span class="color-dot" style="background: #a9cce3;"></span> กล่องสีฟ้า = เพศชาย (ช)<br>
-        <span class="color-dot" style="background: #f9e79f;"></span> กล่องสีเหลือง/ส้ม = เพศหญิง (ญ)<br>
-        <span class="color-dot" style="background: #e74c3c;"></span> เส้นสีแดงทึบ = คู่ชีวิต / สายแต่งงาน (ไม่มีหัวศร)<br>
-        <span class="color-dot" style="background: #2980b9;"></span> เส้นสีน้ำเงิน + ลูกศร = เส้นสายเลือด (ชี้ไปหาลูก)
-    </div>
+  <!-- กล่องสำหรับแสดงผลผังเครือญาติ -->
+  <div id="tree" style="width:100%; height:600px;"></div>
 
-    <!-- พื้นที่สปริงวาดกราฟผังครอบครัว -->
-    <div id="family-network"></div>
+  <script>
+    // สั่งวาดเส้นและจัดเลย์เอาต์อัตโนมัติจากข้อมูล JSON
+    var family = new FamilyTree(document.getElementById("tree"), {
+        mouseScroller: FamilyTree.action.zoom, // ใช้เมาส์สกรอลเพื่อซูมเข้าออกได้
+        nodeBinding: {
+            field_0: "name" // ดึงข้อมูลจากฟิลด์ name มาโชว์ในกล่อง
+        }
+    });
 
-<script type="text/javascript">
-    // 1. ฝังชุดข้อมูลดิบจริงจาก data.csv (คนทีี่ 1 ถึง 33 ตามผังรูปภาพของคุณ)
-    var familyRawData = [
-        { id: "1", name: "นก", father: "", mother: "", spouse: "2", gender: "ช" },
-        { id: "2", name: "สวัสดิ์", father: "", mother: "", spouse: "1", gender: "ญ" },
-        { id: "3", name: "คำเป้า", father: "1", mother: "2", spouse: "4", gender: "ญ" },
-        { id: "4", name: "เดช", father: "", mother: "", spouse: "3", gender: "ช" },
-        { id: "5", name: "เขียว", father: "1", mother: "2", spouse: "6", gender: "ช" },
-        { id: "6", name: "นวล", father: "", mother: "", spouse: "5", gender: "ญ" },
-        { id: "7", name: "เหมย", father: "1", mother: "2", spouse: "8", gender: "ญ" },
-        { id: "8", name: "โอ๊ต", father: "", mother: "", spouse: "7", gender: "ช" }, // สมมติเพศตามรูป
-        { id: "9", name: "เจน", father: "1", mother: "2", spouse: "10", gender: "ช" },
-        { id: "10", name: "บุญเรือน", father: "", mother: "", spouse: "9", gender: "ญ" },
-        { id: "11", name: "แฮ่", father: "1", mother: "2", spouse: "", gender: "ช" },
-        { id: "12", name: "แก้ว", father: "4", mother: "3", spouse: "20|25|26", gender: "ช" }, // 3 เมีย + เคสชายรักชาย
-        { id: "13", name: "ขวัญ", father: "4", mother: "3", spouse: "21", gender: "ญ" },
-        { id: "14", name: "ตี๋", father: "5", mother: "6", spouse: "32|33|34", gender: "ช" }, // 3 เมีย
-        { id: "15", name: "คู่", father: "5", mother: "6", spouse: "22", gender: "ช" },
-        { id: "16", name: "ปุ้ย", father: "7", mother: "8", spouse: "23", gender: "ญ" },
-        { id: "17", name: "ป๊อบ", father: "7", mother: "8", spouse: "24", gender: "ญ" },
-        { id: "18", name: "ทิต", father: "10", mother: "9", spouse: "", gender: "ช" },
-        { id: "19", name: "แวน", father: "10", mother: "9", spouse: "", gender: "ช" },
-        { id: "20", name: "น็อต", father: "", mother: "", spouse: "12", gender: "ญ" },
-        { id: "21", name: "ตอง", father: "", mother: "", spouse: "13", gender: "ช" },
-        { id: "22", name: "นุ้ย", father: "", mother: "", spouse: "15", gender: "ญ" },
-        { id: "23", name: "แชม", father: "", mother: "", spouse: "16", gender: "ช" },
-        { id: "24", name: "สมชาย", father: "", mother: "", spouse: "17", gender: "ช" },
-        { id: "25", name: "ดาว", father: "", mother: "", spouse: "12", gender: "ญ" },
-        { id: "26", name: "เบนซ์", father: "", mother: "", spouse: "12", gender: "ช" }, // เคสชายรักชาย (เกาะกลุ่มกับแก้ว id: 12)
-        { id: "27", name: "เอ", father: "12", mother: "20", spouse: "", gender: "ญ" },
-        { id: "28", name: "อิ่ง", father: "12", mother: "20", spouse: "", gender: "ญ" },
-        { id: "29", name: "โดนัท", father: "21", mother: "13", spouse: "", gender: "ช" },
-        { id: "30", name: "โมนา", father: "21", mother: "13", spouse: "", gender: "ญ" },
-        { id: "31", name: "อะตอม", father: "15", mother: "22", spouse: "", gender: "ช" },
-        { id: "32", name: "โต้ง", father: "", mother: "", spouse: "14", gender: "ญ" },
-        { id: "33", name: "ต๋อง", father: "", mother: "", spouse: "14", gender: "ญ" }
-    ];
-
-    var nodeList = [];
-    var edgeList = [];
-    var marriagePairs = new Set();
-
-    // 2. ลูปสร้างกล่องบุคคล (Nodes)
-    familyRawData.forEach(function(row) {
-        let boxColor = row.gender === 'ช' ? '#a9cce3' : '#f9e79f'; // ฟ้าอมน้ำเงิน = ชาย, เหลืองนวล = หญิง
+    // โครงสร้างข้อมูลแบบแบน (Flat JSON) ที่ตรงกับคอลัมน์ใน CSV ของคุณเป๊ะๆ
+    family.load([
+        { id: 1, pids:, name: "เภา", gender: "male" },
+        { id: 2, pids:, name: "สวัสดิ์", gender: "female" },
         
-        nodeList.push({
-            id: row.id,
-            label: row.name,
-            shape: 'box',
-            color: {
-                background: boxColor,
-                border: '#7f8c8d',
-                highlight: { background: '#2ecc71', border: '#27ae60' } // สีเมื่อคลิกเลือกกล่อง
-            }
-        });
-    });
-
-    // 3. ลูปสร้างเส้นเชื่อมโยง (Edges) อิงรหัสความสัมพันธ์ตามข้อกำหนดเครือข่าย
-    familyRawData.forEach(function(row) {
-        // วาดเส้นแต่งงาน/คู่ชีวิต (Spouse)
-        if (row.spouse) {
-            var spouses = row.spouse.split('|');
-            spouses.forEach(function(spouseId) {
-                spouseId = spouseId.trim();
-                if (!spouseId) return;
-
-                // ตรวจรหัสคู่เพื่อป้องกันเส้นลากทับซ้อนซ้ายขวา
-                var pairKey = [row.id, spouseId].sort().join('-');
-                if (!marriagePairs.has(pairKey)) {
-                    marriagePairs.add(pairKey);
-                    edgeList.push({
-                        from: row.id,
-                        to: spouseId,
-                        color: '#e74c3c', // เส้นแต่งงานสีแดงหนา
-                        width: 3,
-                        arrows: { to: { enabled: false } } // ไม่มีลูกศรชี้เพื่อบ่งบอกความเท่าเทียมกันของคู่ชีวิต
-                    });
-                }
-            });
-        }
-
-        // วาดเส้นสายเลือดพ่อ -> ลูก
-        if (row.father && row.father.trim() !== '') {
-            edgeList.push({
-                from: row.father.trim(),
-                to: row.id,
-                color: '#2980b9', // เส้นสีน้ำเงิน
-                width: 1.5,
-                arrows: 'to' // มีหัวลูกศรดิ่งลงชี้หาตัวลูก
-            });
-        }
-
-        // วาดเส้นสายเลือดแม่ -> ลูก
-        if (row.mother && row.mother.trim() !== '') {
-            edgeList.push({
-                from: row.mother.trim(),
-                to: row.id,
-                color: '#2980b9',
-                width: 1.5,
-                arrows: 'to'
-            });
-        }
-    });
-
-    // 4. สั่งให้ระบบเริ่มประมวลผลกราฟฟิสิกส์สปริงจัดระเบียบเส้นอัตโนมัติ
-    var container = document.getElementById('family-network');
-    var data = {
-        nodes: new vis.DataSet(nodeList),
-        edges: new vis.DataSet(edgeList)
-    };
-    
-    var options = {
-        nodes: {
-            margin: 12,
-            font: { size: 15, face: 'sans-serif' },
-            borderWidth: 1.5,
-            shadow: true
-        },
-        edges: {
-            smooth: { 
-                enabled: true, 
-                type: 'cubicBezier', // ปรับให้เส้นมีความโค้งมนหลบมุมกันอย่างมีมิติ ไม่พาดทับกล่อง
-                roundness: 0.6 
-            }
-        },
-        physics: {
-            enabled: true,
-            barnesHut: { 
-                gravitationalConstant: -5000, // แรงผลักสปริงแบบกระจายตัวกว้าง รองรับได้ถึง 40-50 คนสบายๆ
-                centralGravity: 0.2,
-                springLength: 150,
-                springConstant: 0.05
-            },
-            stabilization: { iterations: 150 } // เร่งความเร็วการคำนวณตำแหน่งตอนเปิดหน้าเว็บ
-        }
-    };
-
-    var network = new vis.Network(container, data, options);
-</script>
-
+        // ลูกของ 1 และ 2 (แต่งงานกับ 4)
+        { id: 3, fid: 1, mid: 2, pids:, name: "คำเบ้า", gender: "female" }, 
+        { id: 4, pids:, name: "เดช", gender: "male" },
+        
+        // หลาน (ลูกของ 4 และ 3)
+        { id: 12, fid: 4, mid: 3, name: "แม้ว", gender: "male" },
+        { id: 13, fid: 4, mid: 3, name: "ขวัญ", gender: "female" }
+    ]);
+  </script>
 </body>
 </html>
 
