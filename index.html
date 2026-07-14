@@ -2,15 +2,17 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <title>ผังครอบครัวระบบเครือข่ายความสัมพันธ์ (CSV ไฟล์เดียว)</title>
+    <title>ผังครอบครัวระบบเครือข่ายความสัมพันธ์</title>
     
-    <!-- โหลดไลบรารี Vis.js และ PapaParse -->
+    <!-- โหลดไลบรารี Vis.js สำหรับวาดโครงสร้างเครือข่าย -->
     <script src="https://cloudflare.com"></script>
-    <script src="https://cloudflare.com"></script>
+    
+    <!-- ดึงข้อมูลจากไฟล์ข้อมูล JavaScript ที่เราเพิ่งสร้างขึ้นมา -->
+    <script src="data.js"></script>
     
     <style>
         * { box-sizing: border-box; }
-        body { margin: 0; background-color: #f3f4f6; font-family: sans-serif; }
+        body { margin: 0; background-color: #f3f4f6; font-family: sans-serif; overflow: hidden; }
         #family-network { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; }
         #help-box {
             position: absolute; top: 15px; left: 15px; background: rgba(255, 255, 255, 0.95);
@@ -23,9 +25,10 @@
 <body>
 
     <div id="help-box">
-        📊 <b>ผังครอบครัวประมวลผลอัตโนมัติจาก data.csv</b><br>
-        • รองรับการมีคู่ครองหลายคน (แยกด้วยเครื่องหมาย <code>|</code>)<br>
-        • รองรับความสัมพันธ์เพศเดียวกัน (LGBTQ+)<br>
+        📊 <b>ผังครอบครัวประมวลผลผ่าน GitHub Pages</b><br>
+        • รองรับการมีคู่ครองหลายคน (เช่น แก้ว, ตี๋)<br>
+        • รองรับคู่ชีวิตเพศเดียวกัน (เช่น เจน-บุญเรือน, แก้ว-เบนซ์)<br>
+        • เลื่อนลูกกลิ้งเมาส์เพื่อซูม หรือคลิกลากจัดตำแหน่งกล่องได้อิสระ<br>
         <hr style="border: 0; border-top: 1px solid #ddd; margin: 10px 0;">
         <b>🎨 ความหมายสีกล่องและเส้น:</b><br>
         <span class="color-dot" style="background: #adcade;"></span> กล่องสีฟ้า = เพศชาย (ช)<br>
@@ -37,123 +40,107 @@
     <div id="family-network"></div>
 
 <script type="text/javascript">
-    // โหลดไฟล์ data.csv และประมวลผล
-    Papa.parse('data.csv', {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        complete: function(results) {
-            var rawData = results.data;
-            
-            var nodeList = [];
-            var edgeList = [];
-            
-            // เพื่อป้องกันการสร้างเส้นแต่งงานซ้ำซ้อนซ้ายขวา
-            var marriagePairs = new Set();
+    // ตรวจสอบว่ามีข้อมูลจากไฟล์ data.js เข้ามาจริงไหม
+    if (typeof familyRawData !== 'undefined') {
+        var nodeList = [];
+        var edgeList = [];
+        var marriagePairs = new Set();
 
-            // ลูปครั้งที่ 1: สร้างกล่องข้อความบุคคล (Nodes)
-            rawData.forEach(function(row) {
-                // ข้ามแถวที่ไม่มี id หรือ name
-                if (!row.id || !row.name) return;
+        // 1. สร้างกล่องข้อความบุคคล (Nodes) จากข้อมูลในไฟล์ data.js
+        familyRawData.forEach(function(row) {
+            if (!row.id || !row.name) return;
 
-                // กำหนดสีกล่องตามคอลัมน์ gender (ช / ญ)
-                let boxColor = '#bdc3c7'; // สีเทาเริ่มต้นกรณีไม่ระบุ
-                if (row.gender === 'ช') boxColor = '#adcade';
-                if (row.gender === 'ญ') boxColor = '#ffbe76';
+            let boxColor = '#bdc3c7'; // สีเริ่มต้นกรณีไม่ระบุเพศ
+            if (row.gender === 'ช') boxColor = '#adcade';
+            if (row.gender === 'ญ') boxColor = '#ffbe76';
 
-                nodeList.push({
-                    id: row.id,
-                    label: row.name,
-                    shape: 'box',
-                    color: boxColor
-                });
+            nodeList.push({
+                id: row.id,
+                label: row.name,
+                shape: 'box',
+                color: boxColor
             });
+        });
 
-            // ลูปครั้งที่ 2: แกะรหัสสร้างเส้นเชื่อมโยงความสัมพันธ์ (Edges)
-            rawData.forEach(function(row) {
-                if (!row.id) return;
+        // 2. แกะโครงสร้างข้อมูลเพื่อวาดเส้นเชื่อมโยง (Edges)
+        familyRawData.forEach(function(row) {
+            if (!row.id) return;
 
-                // 1. สร้างเส้นโยงไปหาคู่ครอง (spouse)
-                if (row.spouse) {
-                    // แยก ID คู่ครองด้วยเครื่องหมาย | 
-                    var spouses = row.spouse.split('|');
-                    spouses.forEach(function(spouseId) {
-                        spouseId = spouseId.trim();
-                        if (!spouseId) return;
+            // ตรวจสอบความสัมพันธ์การแต่งงาน / คู่ชีวิต (spouse)
+            if (row.spouse) {
+                var spouses = row.spouse.split('|');
+                spouses.forEach(function(spouseId) {
+                    spouseId = spouseId.trim();
+                    if (!spouseId) return;
 
-                        // ตรวจสอบรหัสคู่เพื่อไม่ให้ลากเส้นซ้ำ เช่น (1 โยงไป 2) และ (2 โยงไป 1)
-                        var pairKey = [row.id, spouseId].sort().join('-');
-                        if (!marriagePairs.has(pairKey)) {
-                            marriagePairs.add(pairKey);
-                            edgeList.push({
-                                from: row.id,
-                                to: spouseId,
-                                color: '#e74c3c', // เส้นสีแดงสำหรับคู่ครอง
-                                width: 3,
-                                arrows: { to: { enabled: false } } // ไม่มีหัวลูกศร
-                            });
-                        }
-                    });
-                }
-
-                // 2. สร้างเส้นโยงจาก พ่อ (father) ไปหาลูก
-                if (row.father && row.father.trim() !== '') {
-                    edgeList.push({
-                        from: row.father.trim(),
-                        to: row.id,
-                        color: '#2980b9', // เส้นสีน้ำเงินชี้หาลูก
-                        width: 1.5,
-                        arrows: 'to'
-                    });
-                }
-
-                // 3. สร้างเส้นโยงจาก แม่ (mother) ไปหาลูก
-                if (row.mother && row.mother.trim() !== '') {
-                    edgeList.push({
-                        from: row.mother.trim(),
-                        to: row.id,
-                        color: '#2980b9', // เส้นสีน้ำเงินชี้หาลูก
-                        width: 1.5,
-                        arrows: 'to'
-                    });
-                }
-            });
-
-            // วาดกราฟด้วย Vis.js
-            var container = document.getElementById('family-network');
-            var data = {
-                nodes: new vis.DataSet(nodeList),
-                edges: new vis.DataSet(edgeList)
-            };
-            
-            var options = {
-                nodes: {
-                    margin: 12,
-                    font: { size: 15 },
-                    borderWidth: 2,
-                    shadow: true
-                },
-                edges: {
-                    smooth: { enabled: true, type: 'cubicBezier', roundness: 0.5 }
-                },
-                physics: {
-                    enabled: true,
-                    barnesHut: { 
-                        gravitationalConstant: -4000, // เพิ่มแรงผลักให้กล่องขยายห่างกันสำหรับคน 40 คน
-                        springLength: 180 
+                    var pairKey = [row.id, spouseId].sort().join('-');
+                    if (!marriagePairs.has(pairKey)) {
+                        marriagePairs.add(pairKey);
+                        edgeList.push({
+                            from: row.id,
+                            to: spouseId,
+                            color: '#e74c3c', // เส้นแต่งงานสีแดง
+                            width: 3,
+                            arrows: { to: { enabled: false } }
+                        });
                     }
-                }
-            };
+                });
+            }
 
-            var network = new vis.Network(container, data, options);
-        },
-        error: function(error) {
-            console.error("เกิดข้อผิดพลาด:", error);
-            alert("ไม่สามารถเปิดไฟล์ data.csv ได้");
-        }
-    });
+            // ตรวจสอบความสัมพันธ์จากฝั่ง พ่อ (father)
+            if (row.father && row.father.trim() !== '') {
+                edgeList.push({
+                    from: row.father.trim(),
+                    to: row.id,
+                    color: '#2980b9', // เส้นลูกสีน้ำเงิน
+                    width: 1.5,
+                    arrows: 'to'
+                });
+            }
+
+            // ตรวจสอบความสัมพันธ์จากฝั่ง แม่ (mother)
+            if (row.mother && row.mother.trim() !== '') {
+                edgeList.push({
+                    from: row.mother.trim(),
+                    to: row.id,
+                    color: '#2980b9', // เส้นลูกสีน้ำเงิน
+                    width: 1.5,
+                    arrows: 'to'
+                });
+            }
+        });
+
+        // 3. เริ่มสั่งวาดผังครอบครัวลงบนหน้าเว็บ
+        var container = document.getElementById('family-network');
+        var data = {
+            nodes: new vis.DataSet(nodeList),
+            edges: new vis.DataSet(edgeList)
+        };
+        
+        var options = {
+            nodes: {
+                margin: 12,
+                font: { size: 15 },
+                borderWidth: 2,
+                shadow: true
+            },
+            edges: {
+                smooth: { enabled: true, type: 'cubicBezier', roundness: 0.5 }
+            },
+            physics: {
+                enabled: true,
+                barnesHut: { 
+                    gravitationalConstant: -4000, // แรงผลักดันระว่างกล่องไม่ให้ทับซ้อนกัน
+                    springLength: 160 
+                }
+            }
+        };
+
+        var network = new vis.Network(container, data, options);
+    } else {
+        alert("ไม่พบข้อมูลสมาชิกในไฟล์ data.js กรุณาตรวจสอบว่ามีไฟล์อยู่ในโฟลเดอร์เดียวกันหรือไม่");
+    }
 </script>
 
 </body>
 </html>
-
